@@ -225,6 +225,10 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   picks every available file; missing files are disabled. Stop cancels the
   current file and the rest of the queue, and cards already generated are kept.
   This is the expensive route: one DeepSeek run per file.
+- **Plan several files:** tick the files and press **Plan selected** instead.
+  The plan modal counts drafts, pushed cards, clozes and manual hides in every
+  selected file, then builds one combined schedule. The same modal is available
+  as **Study plan** above Review for the file you have open.
 - **Large files:** *Auto from whole file* first plans chapters, then generates
   one chapter at a time. It prefers the PDF/EPUB table of contents, then clear
   headings, then a compact model-planned outline. If no structure is found, it
