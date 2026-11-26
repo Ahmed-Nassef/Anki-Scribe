@@ -176,6 +176,10 @@ class PlanBody(BaseModel):
     review_seconds: int = Field(default=15, ge=3, le=600)
 
 
+class PlanSourcesBody(BaseModel):
+    file_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
 class DeckBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     parent: str = Field(default="", max_length=200)
@@ -376,6 +380,17 @@ def create_app(
         TrustedHostMiddleware,
         allowed_hosts=["127.0.0.1", "localhost"],
     )
+
+    @app.middleware("http")
+    async def revalidate_static_files(request, call_next):
+        # Local JS changes on every update; a stale cached documents.js used to
+        # break PDF loading after a restart. Revalidate static files so the UI
+        # picks up the matching client immediately.
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     app.state.store = store or Store()
     app.state.settings = settings or Settings.load()
     app.state.library = library or Library()
@@ -401,7 +416,10 @@ def create_app(
 
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(
+            STATIC_DIR / "index.html",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/favicon.svg", include_in_schema=False)
     def favicon() -> FileResponse:
@@ -516,6 +534,8 @@ def create_app(
                     doc = store_.create_image(temp_path, original)
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
+            if any(page.needs_ocr for page in doc.pages):
+                store_.start_ocr(doc)
         finally:
             temp_path.unlink(missing_ok=True)
         logger.info(
@@ -554,8 +574,34 @@ def create_app(
             "width": page.width,
             "height": page.height,
             "lines": lines,
-            "ocr": used_ocr,
+            "ocr": used_ocr or page.ocr_done,
         }
+
+    # -- automatic OCR ---------------------------------------------------
+
+    @app.get("/api/documents/{doc_id}/ocr")
+    def document_ocr_status(doc_id: str) -> dict:
+        try:
+            doc = app.state.store.require(doc_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return app.state.store.ocr_status(doc)
+
+    @app.post("/api/documents/{doc_id}/ocr")
+    def document_ocr_start(doc_id: str) -> dict:
+        try:
+            doc = app.state.store.require(doc_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return app.state.store.start_ocr(doc)
+
+    @app.post("/api/documents/{doc_id}/ocr/cancel")
+    def document_ocr_cancel(doc_id: str) -> dict:
+        try:
+            doc = app.state.store.require(doc_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return app.state.store.cancel_ocr(doc)
 
     @app.post("/api/documents/{doc_id}/answer-masks")
     def document_answer_masks(doc_id: str, body: AnswerMasksBody) -> dict:
@@ -932,6 +978,44 @@ def create_app(
             logger.exception("study plan failed")
             raise HTTPException(500, f"Couldn't build the study plan: {exc}") from exc
 
+    @app.post("/api/plan/sources")
+    def plan_sources(body: PlanSourcesBody) -> dict:
+        """Study-item counts for selected library files, without opening them."""
+        rows: list[dict] = []
+        for file_id in body.file_ids:
+            try:
+                file = app.state.library.get_file(file_id)
+            except LibraryError:
+                continue
+            cards: list[dict] = []
+            try:
+                cards.extend(app.state.drafts.get(file.path).get("cards", []))
+                cards.extend(app.state.sent.get(file.path).get("cards", []))
+            except Exception:
+                logger.exception("plan source read failed file=%s", file_id)
+                continue
+            counts = planner.item_counts(cards)
+            try:
+                masks = app.state.masks.get(file.path).get("masks", [])
+            except Exception:
+                masks = []
+            manual = len(masks) if isinstance(masks, list) else 0
+            counts["manual"] = manual
+            counts["total"] += manual
+            rows.append(
+                {
+                    "fileId": file.id,
+                    "name": file.name,
+                    "path": file.path,
+                    **counts,
+                }
+            )
+        total = {
+            key: sum(int(row.get(key) or 0) for row in rows)
+            for key in ("basic", "cloze", "figure", "manual", "total")
+        }
+        return {"files": rows, "total": total}
+
     # -- generation ------------------------------------------------------
 
     @app.get("/api/ai/balance")
@@ -1043,6 +1127,8 @@ def create_app(
         existing = app.state.store.find_by_source(path)
         if existing is not None:
             app.state.library.touch(file_id)
+            if any(page.needs_ocr for page in existing.pages):
+                app.state.store.start_ocr(existing)
             summary = existing.summary()
             summary["libraryFileId"] = file.id
             return summary
@@ -1061,6 +1147,8 @@ def create_app(
             raise HTTPException(400, str(exc)) from exc
         except Exception as exc:
             raise HTTPException(502, f"Couldn't open that file: {exc}") from exc
+        if any(page.needs_ocr for page in doc.pages):
+            app.state.store.start_ocr(doc)
         app.state.library.touch(file_id)
         summary = doc.summary()
         summary["libraryFileId"] = file.id

@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from app.planner import PlanInput, build_plan, study_days
+from app.planner import PlanInput, build_plan, item_counts, study_days
 
 
 def plan(**overrides) -> dict:
@@ -134,3 +134,20 @@ def test_study_days_helper_excludes_the_exam():
         date(2026, 11, 25),
         date(2026, 11, 26),
     ]
+
+
+def test_item_counts_counts_clozes_and_deduplicates():
+    cards = [
+        {"uid": "a", "mode": "basic"},
+        {"uid": "b", "mode": "cloze", "text": "{{c1::one}} and {{c2::two}} and {{c1::one}}"},
+        {"uid": "c", "mode": "cloze", "text": "no deletion here"},
+        {"uid": "d", "mode": "figure"},
+        {"uid": "a", "mode": "basic"},
+        {"uid": "x", "mode": "basic", "selected": False},
+    ]
+    items = item_counts(cards)
+    assert items == {"basic": 1, "cloze": 3, "figure": 1, "total": 5}
+
+
+def test_item_counts_handles_empty_cards():
+    assert item_counts([]) == {"basic": 0, "cloze": 0, "figure": 0, "total": 0}

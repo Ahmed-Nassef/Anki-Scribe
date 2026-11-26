@@ -59,6 +59,7 @@ function loadDocument(doc) {
     loadSentForDocument(doc);
     loadObjectives(doc);
     prepareAnswersForDocument(doc);
+    if (typeof prepareOcrForDocument === "function") prepareOcrForDocument(doc);
     return;
   }
 
@@ -90,6 +91,7 @@ function loadDocument(doc) {
   loadSentForDocument(doc);
   loadObjectives(doc);
   prepareAnswersForDocument(doc);
+  if (typeof prepareOcrForDocument === "function") prepareOcrForDocument(doc);
 }
 
 function formatTranscriptTime(seconds) {

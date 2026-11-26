@@ -955,3 +955,109 @@ def test_ai_answer_masks_endpoint(client, monkeypatch):
     assert result["masks"]
     assert result["masks"][0]["category"] == "dose"
     assert result["masks"][0]["uids"] == ["dose"]
+
+
+def test_ocr_status_endpoint_for_a_text_pdf(client):
+    uploaded = client.post(
+        "/api/documents",
+        files={"file": ("text.pdf", pdf_bytes(), "application/pdf")},
+    )
+    doc_id = uploaded.json()["id"]
+    status = client.get(f"/api/documents/{doc_id}/ocr").json()
+    assert status["pending"] == 0
+    assert status["total"] == 0
+    assert status["running"] is False
+    started = client.post(f"/api/documents/{doc_id}/ocr").json()
+    assert started["pending"] == 0
+    assert client.post(f"/api/documents/{doc_id}/ocr/cancel").status_code == 200
+
+
+def test_uploading_a_scanned_pdf_starts_background_ocr(client, monkeypatch):
+    import time
+
+    import app.store as store_module
+
+    def fake(image_path, width):
+        return [
+            {
+                "text": "Scanned text.",
+                "x0": 20.0,
+                "y0": 30.0,
+                "x1": 200.0,
+                "y1": 50.0,
+            }
+        ]
+
+    monkeypatch.setattr(store_module, "ocr_lines", fake)
+    pdf = pymupdf.open()
+    pdf.new_page(width=600, height=800)
+    data = pdf.tobytes()
+    pdf.close()
+    uploaded = client.post(
+        "/api/documents",
+        files={"file": ("scan.pdf", data, "application/pdf")},
+    )
+    doc_id = uploaded.json()["id"]
+    deadline = time.time() + 5
+    status = client.get(f"/api/documents/{doc_id}/ocr").json()
+    while status["running"] and time.time() < deadline:
+        time.sleep(0.02)
+        status = client.get(f"/api/documents/{doc_id}/ocr").json()
+    assert status["pending"] == 0
+    assert status["done"] == 1
+    lines = client.get(f"/api/documents/{doc_id}/pages/0/lines").json()
+    assert lines["lines"][0]["text"] == "Scanned text."
+    assert lines["ocr"] is True
+
+
+def test_static_js_is_revalidated(client):
+    response = client.get("/static/js/ocr.js")
+    assert response.status_code == 200
+    assert "no-cache" in response.headers.get("cache-control", "")
+
+
+def test_plan_sources_counts_selected_files(client, tmp_path):
+    source = tmp_path / "planned.pdf"
+    source.write_bytes(pdf_bytes())
+    library = client.app.state.library
+    file, _ = library.add_file(str(source))
+    drafts = client.app.state.drafts
+    drafts.put(
+        file.path,
+        file.name,
+        [
+            {"uid": "a", "mode": "basic", "question": "q", "answer": "a"},
+            {
+                "uid": "b",
+                "mode": "cloze",
+                "text": "{{c1::one}} and {{c2::two}}",
+            },
+            {"uid": "c", "mode": "figure"},
+        ],
+    )
+    client.app.state.sent.append(
+        file.path,
+        file.name,
+        [{"id": "s1", "mode": "basic", "question": "q", "answer": "a"}],
+    )
+    client.app.state.masks.put(
+        file.path,
+        [
+            {
+                "id": "m1",
+                "text": "hidden",
+                "boxes": [{"page": 0, "x": 0.1, "y": 0.1, "w": 0.2, "h": 0.05}],
+            }
+        ],
+    )
+    response = client.post("/api/plan/sources", json={"file_ids": [file.id]})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["total"] == {
+        "basic": 2,
+        "cloze": 2,
+        "figure": 1,
+        "manual": 1,
+        "total": 6,
+    }
+    assert result["files"][0]["name"] == "planned.pdf"

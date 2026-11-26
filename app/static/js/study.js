@@ -161,8 +161,13 @@ function updateSheetActions() {
         : "";
   }
   if (els.planBtn) {
-    els.planBtn.hidden =
-      typeof planAvailableItems !== "function" || planAvailableItems() === 0;
+    const available =
+      typeof planAvailableItems === "function" ? planAvailableItems() : 0;
+    els.planBtn.hidden = !state.doc;
+    els.planBtn.disabled = available === 0;
+    els.planBtn.title = available
+      ? `Build a day-by-day schedule from ${available} study items`
+      : "Generate cards or hide an answer first";
   }
 }
 

@@ -30,6 +30,7 @@ function bindEvents() {
   els.libraryNewGroupBtn.addEventListener("click", createLibraryGroup);
   els.librarySelectAllBtn.addEventListener("click", toggleLibrarySelection);
   els.libraryBatchBtn.addEventListener("click", runLibraryBatch);
+  els.libraryPlanBtn.addEventListener("click", planSelectedLibraryFiles);
   els.libraryPathAdd.addEventListener("click", addLibraryPath);
   els.libraryPathInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -429,6 +430,7 @@ function bindEvents() {
 
   bindAnswerEvents();
   bindPlanEvents();
+  if (typeof bindOcrEvents === "function") bindOcrEvents();
 
   window.addEventListener("dragover", (event) => {
     if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes("Files")) {

@@ -39,29 +39,55 @@ function planItemBreakdown() {
 }
 
 function planAvailableItems() {
+  if (state.plan.scopeIds.length) return planScopeItems().total;
   return planItemBreakdown().total;
 }
 
-function planBreakdownText(items) {
+function planScopeItems() {
+  const items = { basic: 0, cloze: 0, figure: 0, manual: 0, total: 0 };
+  const sources = state.plan.sources || [];
+  for (const source of sources) {
+    items.basic += Number(source.basic) || 0;
+    items.cloze += Number(source.cloze) || 0;
+    items.figure += Number(source.figure) || 0;
+    items.manual += Number(source.manual) || 0;
+  }
+  const currentId = state.activeLibraryFileId || state.doc?.libraryFileId || "";
+  const covered =
+    currentId && sources.some((source) => String(source.fileId) === String(currentId));
+  if (state.doc && (!state.plan.scopeIds.length || covered)) {
+    const current = planItemBreakdown();
+    items.basic += current.basic;
+    items.cloze += current.cloze;
+    items.figure += current.figure;
+    items.manual += current.manual;
+  }
+  items.total = items.basic + items.cloze + items.figure + items.manual;
+  return items;
+}
+
+function planBreakdownText(items, sourceCount = 0) {
   const parts = [];
   if (items.basic) parts.push(`${items.basic} Q&A`);
   if (items.cloze) parts.push(`${items.cloze} cloze`);
   if (items.figure) parts.push(`${items.figure} figure${items.figure === 1 ? "" : "s"}`);
   if (items.manual) parts.push(`${items.manual} hidden`);
-  return `${items.total} study item${items.total === 1 ? "" : "s"}${
+  const files = sourceCount > 1 ? ` across ${sourceCount} files` : "";
+  return `${items.total} study item${items.total === 1 ? "" : "s"}${files}${
     parts.length ? `: ${parts.join(" + ")}` : ""
   }`;
 }
 
 function updatePlanAvailability() {
   if (!els.planCards) return;
-  const items = planItemBreakdown();
+  const items = planScopeItems();
   const available = items.total;
   els.planCards.max = String(Math.min(available, 10000));
   if (Number(els.planCards.value) > available) {
     els.planCards.value = String(available);
   }
-  els.planCardsHint.textContent = planBreakdownText(items);
+  const sourceCount = state.plan.scopeIds.length || 0;
+  els.planCardsHint.textContent = planBreakdownText(items, sourceCount);
 }
 
 function planLocalIso(day) {
@@ -110,6 +136,61 @@ function planRatingLabel(value) {
   return "Good";
 }
 
+function planClock(value, fallback) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || ""));
+  if (!match) return fallback;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  return Number.isFinite(minutes) && minutes >= 0 && minutes <= 1439
+    ? minutes
+    : fallback;
+}
+
+function formatPlanClock(minutes) {
+  const value = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(
+    value % 60
+  ).padStart(2, "0")}`;
+}
+
+function updatePlanWindow() {
+  if (!els.planStart || !els.planEnd) return 60;
+  const start = planClock(els.planStart.value, 8 * 60);
+  const end = planClock(els.planEnd.value, 22 * 60);
+  const minutes = end - start;
+  if (minutes < 5) {
+    if (els.planWindowHint) els.planWindowHint.textContent = "End must be after start";
+    if (els.planMinutes) els.planMinutes.value = "0";
+    return 0;
+  }
+  if (els.planMinutes) els.planMinutes.value = String(minutes);
+  if (els.planWindowHint) {
+    els.planWindowHint.textContent = `${formatPlanMinutes(minutes)} per day \u00b7 ${formatPlanClock(
+      start
+    )}\u2013${formatPlanClock(end)}`;
+  }
+  return minutes;
+}
+
+function planBufferLimit() {
+  const deadline = els.planDeadline.value
+    ? planDateFromIso(els.planDeadline.value)
+    : planDateFromIso(planDefaultDeadline());
+  if (Number.isNaN(deadline.getTime())) return 60;
+  return Math.max(
+    0,
+    Math.min(60, Math.round((deadline.getTime() - planToday().getTime()) / 86400000) - 1)
+  );
+}
+
+function clampPlanBuffer() {
+  if (!els.planBuffer) return;
+  const limit = planBufferLimit();
+  els.planBuffer.max = String(limit);
+  if (Number(els.planBuffer.value) > limit) {
+    els.planBuffer.value = String(limit);
+  }
+}
+
 function loadPlanPrefs() {
   try {
     const raw = localStorage.getItem(PLAN_PREF_KEY);
@@ -127,6 +208,8 @@ function savePlanPrefs(payload) {
       JSON.stringify({
         deadline: payload.deadline,
         minutes: payload.minutes,
+        start_time: payload.start_time,
+        end_time: payload.end_time,
         buffer_days: payload.buffer_days,
         retention: payload.retention,
         rating: payload.rating,
@@ -140,8 +223,23 @@ function savePlanPrefs(payload) {
   }
 }
 
-function openPlanDialog() {
-  if (!state.doc) {
+async function openPlanDialog(options = {}) {
+  const fileIds = Array.isArray(options?.fileIds) ? options.fileIds : [];
+  state.plan.scopeIds = fileIds;
+  state.plan.sources = [];
+  if (fileIds.length) {
+    try {
+      const data = await api("/api/plan/sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_ids: fileIds }),
+      });
+      state.plan.sources = Array.isArray(data.files) ? data.files : [];
+    } catch (error) {
+      toast(`Couldn't count the selected files: ${error.message}`, "error", 7000);
+    }
+  }
+  if (!state.doc && !fileIds.length) {
     toast("Open a file first.", "info", 3000);
     return;
   }
@@ -167,13 +265,26 @@ function openPlanDialog() {
       ? Math.min(preferredCards, available)
       : available
   );
+  els.planStart.value = prefs.start_time || "08:00";
+  els.planEnd.value = prefs.end_time || "22:00";
+  updatePlanWindow();
   updatePlanAvailability();
-  els.planSubtitle.textContent =
-    "FSRS-6 schedule for Q&A cards, every cloze deletion and the answers you hid by hand. It assumes they are new.";
-  els.planMinutes.value = String(prefs.minutes || 60);
+  els.planSubtitle.textContent = fileIds.length
+    ? `FSRS-6 schedule across ${fileIds.length} selected file${fileIds.length === 1 ? "" : "s"}; Q&A cards, every cloze deletion and hand-hidden answers count as items.`
+    : "FSRS-6 schedule for Q&A cards, every cloze deletion and the answers you hid by hand. It assumes they are new.";
   els.planBuffer.value = String(
-    Number.isFinite(Number(prefs.buffer_days)) ? prefs.buffer_days : 2
+    Math.min(
+      Number.isFinite(Number(prefs.buffer_days)) ? Number(prefs.buffer_days) : 2,
+      Math.max(
+        0,
+        Math.round(
+          (planDateFromIso(deadline).getTime() - planToday().getTime()) / 86400000
+        ) - 1
+      ),
+      60
+    )
   );
+  clampPlanBuffer();
   els.planRetention.value = String(
     Math.round((Number(prefs.retention) || 0.9) * 100)
   );
@@ -207,14 +318,23 @@ function openPlanDialog() {
 function updatePlanNote(available) {
   if (!els.planNote) return;
   const sent = state.sent && Array.isArray(state.sent.cards) ? state.sent.cards.length : 0;
-  const items = planItemBreakdown();
-  const breakdown = planBreakdownText(items);
-  els.planNote.textContent = sent
-    ? `${breakdown}. ${sent} cards are already in Anki; the plan treats every item as new because it cannot read Anki's review history. Each cloze deletion counts once, and answers you hid by hand count as items.`
-    : `${breakdown}. Each cloze deletion counts once, answers you hid by hand count as items, and every item is treated as new. Card creation and reading time are the per-card estimate below.`;
+  const items = planScopeItems();
+  const sourceCount = state.plan.scopeIds.length || 0;
+  const breakdown = planBreakdownText(items, sourceCount);
+  const sourceText = sourceCount
+    ? ` ${sourceCount} selected file${sourceCount === 1 ? "" : "s"}; `
+    : " ";
+  els.planNote.textContent =
+    `${breakdown}.${sourceText}` +
+    (sent && !sourceCount
+      ? `${sent} cards are already in Anki; the plan treats every item as new because it cannot read Anki's review history. `
+      : "") +
+    "Each cloze deletion counts once, answers you hid by hand count as items, and every item is treated as new. Card creation and reading time are the per-card estimate below.";
 }
 
 function closePlanDialog() {
+  state.plan.scopeIds = [];
+  state.plan.sources = [];
   if (els.planDialog && els.planDialog.open) els.planDialog.close();
 }
 
@@ -236,12 +356,14 @@ function collectPlanPayload() {
     throw new Error("Enter how many cards you need to learn.");
   }
   if (cards > available) {
-    throw new Error(`This file only has ${available} selected cards.`);
+    throw new Error(`This selection only has ${available} selected items.`);
   }
-  const minutes = Number(els.planMinutes.value);
+  const minutes = updatePlanWindow();
   if (!Number.isFinite(minutes) || minutes < 5) {
-    throw new Error("Give the plan at least 5 minutes per day.");
+    throw new Error("Set an end time later than the start time.");
   }
+  const startTime = els.planStart.value || "08:00";
+  const endTime = els.planEnd.value || "22:00";
   const buffer = Number(els.planBuffer.value);
   if (!Number.isFinite(buffer) || buffer < 0) {
     throw new Error("The review buffer cannot be negative.");
@@ -261,6 +383,8 @@ function collectPlanPayload() {
     deadline,
     cards,
     minutes: Math.round(minutes),
+    start_time: startTime,
+    end_time: endTime,
     weekdays,
     buffer_days: Math.round(buffer),
     retention,
@@ -326,6 +450,95 @@ function renderPlanTable(result, payload) {
   table.appendChild(tbody);
   wrap.appendChild(table);
   return wrap;
+}
+
+function renderPlanHours(result, payload) {
+  const days = (result.days || []).filter((day) => day.new || day.reviews);
+  if (!days.length) return document.createDocumentFragment();
+  const start = planClock(payload.start_time, 8 * 60);
+  const end = planClock(payload.end_time, 22 * 60);
+  if (end - start < 5) return document.createDocumentFragment();
+
+  const details = document.createElement("details");
+  details.className = "plan-hours";
+  details.open = days.length === 1;
+  const summary = document.createElement("summary");
+  summary.textContent = `Hour-by-hour \u00b7 ${formatPlanClock(start)}\u2013${formatPlanClock(end)}`;
+  details.appendChild(summary);
+
+  const select = document.createElement("select");
+  select.className = "plan-hours-day";
+  select.setAttribute("aria-label", "Day to show hour by hour");
+  for (const day of days) {
+    const option = document.createElement("option");
+    option.value = day.date;
+    option.textContent = formatPlanDate(day.date);
+    select.appendChild(option);
+  }
+  details.appendChild(select);
+
+  const list = document.createElement("div");
+  list.className = "plan-hours-list";
+  details.appendChild(list);
+
+  function draw() {
+    list.replaceChildren();
+    const day = days.find((item) => item.date === select.value) || days[0];
+    let reviewLeft = Number(day.reviews) || 0;
+    let newLeft = Number(day.new) || 0;
+    let cursor = start;
+    let rendered = 0;
+    while (cursor < end && (reviewLeft || newLeft)) {
+      const bucketEnd = Math.min(cursor + 60, end);
+      let seconds = (bucketEnd - cursor) * 60;
+      const reviews = Math.min(
+        reviewLeft,
+        Math.floor(seconds / Math.max(3, Number(payload.review_seconds) || 15))
+      );
+      seconds -= reviews * Math.max(3, Number(payload.review_seconds) || 15);
+      const news = Math.min(
+        newLeft,
+        Math.floor(seconds / Math.max(5, Number(payload.new_seconds) || 60))
+      );
+      reviewLeft -= reviews;
+      newLeft -= news;
+      if (reviews || news) {
+        const row = document.createElement("div");
+        row.className = "plan-hour";
+        const range = planText(
+          "span",
+          "plan-hour-range",
+          `${formatPlanClock(cursor)}\u2013${formatPlanClock(bucketEnd)}`
+        );
+        const counts = [];
+        if (news) counts.push(`${news} new`);
+        if (reviews) counts.push(`${reviews} review${reviews === 1 ? "" : "s"}`);
+        row.append(range, planText("span", "plan-hour-work", counts.join(" \u00b7 ")));
+        list.appendChild(row);
+        rendered += news + reviews;
+      }
+      cursor = bucketEnd;
+    }
+    if (!rendered) {
+      list.appendChild(
+        planText("p", "plan-hours-empty", "No items fit in this study window.")
+      );
+    }
+    if (reviewLeft || newLeft) {
+      const left = reviewLeft + newLeft;
+      list.appendChild(
+        planText(
+          "p",
+          "plan-hours-empty",
+          `${left} item${left === 1 ? "" : "s"} do not fit in this window; add time or move the deadline.`
+        )
+      );
+    }
+  }
+
+  select.addEventListener("change", draw);
+  draw();
+  return details;
 }
 
 function renderPlan(result, payload) {
@@ -396,12 +609,13 @@ function renderPlan(result, payload) {
   }
 
   target.appendChild(renderPlanTable(result, payload));
+  target.appendChild(renderPlanHours(result, payload));
 
   const foot = document.createElement("p");
   foot.className = "plan-foot";
   foot.textContent =
     `FSRS-6 \u00b7 ${Math.round(Number(summary.retention) * 100)}% desired retention \u00b7 ` +
-    `${planRatingLabel(summary.rating)} recall \u00b7 no intraday learning steps \u00b7 no lapses simulated`;
+    `${planRatingLabel(summary.rating)} recall \u00b7 no extra intraday reviews \u00b7 hourly blocks show how the day's workload fits your study window`;
   target.appendChild(foot);
 
   state.plan.result = result;
@@ -463,8 +677,12 @@ function markdownPlan() {
     `# Study plan \u2014 exam ${formatPlanDate(payload.deadline)}`,
     "",
     `- Study items: ${summary.cards}`,
+    `- Study window: ${payload.start_time || "08:00"}\u2013${payload.end_time || "22:00"}`,
     `- Study days: ${summary.studyDays} (${payload.weekdays.map((day) => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][day]).join(", ")})`,
     `- Time per day: ${summary.minutesPerDay} min`,
+    ...(state.plan.scopeIds.length
+      ? [`- Files: ${state.plan.scopeIds.length} selected`]
+      : []),
     `- Peak day: ${formatPlanMinutes(summary.peakMinutes)}`,
     `- Total time: ${formatPlanMinutes(summary.totalMinutes)}`,
     `- FSRS-6 desired retention: ${Math.round(Number(summary.retention) * 100)}%`,
@@ -522,6 +740,27 @@ function bindPlanEvents() {
   if (els.planRetention) {
     els.planRetention.addEventListener("input", () => {
       els.planRetentionValue.textContent = `${els.planRetention.value}%`;
+    });
+  }
+  for (const input of [els.planStart, els.planEnd]) {
+    if (!input) continue;
+    input.addEventListener("change", () => {
+      updatePlanWindow();
+      updatePlanAvailability();
+    });
+  }
+  if (els.planDeadline) {
+    els.planDeadline.addEventListener("change", () => {
+      clampPlanBuffer();
+      updatePlanAvailability();
+    });
+  }
+  if (els.planAllDay) {
+    els.planAllDay.addEventListener("click", () => {
+      els.planStart.value = "00:00";
+      els.planEnd.value = "23:59";
+      updatePlanWindow();
+      updatePlanAvailability();
     });
   }
 }

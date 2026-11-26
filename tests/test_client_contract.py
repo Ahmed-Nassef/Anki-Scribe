@@ -120,7 +120,7 @@ def test_every_function_called_from_event_wiring_is_defined():
 
 def test_scripts_load_in_a_declared_order_without_gaps():
     html = INDEX.read_text(encoding="utf-8")
-    loaded = re.findall(r'<script src="/static/js/([^"]+)"', html)
+    loaded = re.findall(r'<script src="/static/js/([^"?]+)', html)
     on_disk = [path.name for path in JS_FILES]
     assert sorted(loaded) == on_disk, (
         f"script tags {sorted(loaded)} do not match files on disk {on_disk}"

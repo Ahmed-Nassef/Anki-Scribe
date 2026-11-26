@@ -108,7 +108,9 @@ The product is a pipeline: **find text → make cards → verify them → get th
 | F3 | Diagnostics bundle + logging | 3 | 1 | 1 d | low | **4** |
 | F4 | Study sheet: type-to-reveal, MD/CSV export, AnkiWeb sync | 4 | 2 | 1 d | low | **4** |
 | F5 | Hide answers on the PDF page itself | 5 | 4 | 1.5 d | low | **4** |
-| F6 | FSRS-6 study plan from an exam date and daily time | 5 | 4 | 1.5 d | low | **4** |
+| F6 | FSRS-6 study plan: exam date, study window, multi-file scope and hourly blocks | 5 | 4 | 1.5 d | low | **4** |
+| F7 | Automatic OCR for scanned PDFs | 5 | 4 | 1 d | low | **4** |
+| F8 | Batch generation across library files | 5 | 4 | 0.5 d | low | **4** |
 
 Waves 1–2 are ~14 days and double as the 1.0 hardening from the review: they make the cards trustworthy and the app remember, which is the difference between a demo and a tool.
 

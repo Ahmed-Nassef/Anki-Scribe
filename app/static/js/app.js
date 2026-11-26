@@ -2,6 +2,8 @@
 
 /* Application bootstrap: DOM references, startup and periodic checks. */
 
+window.__ANKI_SCRIBE_CLIENT__ = "20261127d";
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
 } else {
@@ -22,7 +24,8 @@ async function init() {
     "zoomOut", "zoomIn", "zoomLabel", "fitBtn", "figureBtn", "selectionMeta", "clearSelection",
     "hideAnswersBtn", "hideAnswersLabel", "hideAnswersCount", "hideSelectionBtn",
     "revealAnswersBtn", "clearMasksBtn", "toolbarHint", "aiAnswersBtn", "aiAnswersLabel",
-    "answerLegend",
+    "answerLegend", "ocrBanner", "ocrSpinner", "ocrBannerTitle", "ocrBannerDetail",
+    "ocrBannerBar", "ocrRetry", "ocrCancel",
     "selectionText", "charCount", "charLimit", "modeToggle", "cardCount",
     "generateBtn", "generateLabel", "generateCancel", "keyBanner", "bannerSettings", "cardsBlock",
     "cardsMeta", "clearCards", "cardsList", "pushBar", "deckInput", "deckOptions",
@@ -31,7 +34,8 @@ async function init() {
     "pushSendAll", "pushSendAnyway", "pushCancel", "closePush",
     "sheetRow", "sheetHint", "studyBtn", "exportPdfBtn", "exportHtmlBtn", "planBtn",
     "planDialog", "planForm", "closePlan", "planCancel", "planRun", "planCopy",
-    "planDeadline", "planCards", "planCardsHint", "planMinutes", "planBuffer",
+    "planDeadline", "planCards", "planCardsHint", "planMinutes", "planStart",
+    "planEnd", "planWindowHint", "planAllDay", "planBuffer",
     "planRetention", "planRetentionValue", "planRating", "planNewSeconds",
     "planReviewSeconds", "planResult", "planSubtitle", "planNote",
     "triageBtn", "triageDialog", "triageTitle", "closeTriage",
@@ -53,7 +57,7 @@ async function init() {
     "libraryBtn", "libraryCount", "emptyLibraryBtn", "libraryDialog", "libraryForm",
     "closeLibrary", "libraryClose", "libraryAddBtn", "libraryNewGroupBtn",
     "librarySearch", "libraryGroups", "libraryPathInput", "libraryPathGroup",
-    "libraryPathAdd", "librarySelectAllBtn", "libraryBatchBtn",
+    "libraryPathAdd", "librarySelectAllBtn", "libraryBatchBtn", "libraryPlanBtn",
     "autoDocBtn", "autoPanel", "autoStatus", "autoBar", "autoDetail", "autoCancel",
     "autoSpinner", "autoBadge", "splitDocBtn", "splitLabel", "splitBadge", "imageFileInput",
     "settingsDialog", "settingsForm", "closeSettings", "cancelSettings",
@@ -74,11 +78,13 @@ async function init() {
   const resize = new ResizeObserver(debounce(() => applyPageWidth(), 100));
   resize.observe(els.scroller);
 
-  await loadSettings();
-  refreshAiBalance({ quiet: true });
-  const ankiCheck = checkAnki({ quiet: true });
-  await restoreLastFile();
+  await loadSettings().catch(() => {});
+  refreshAiBalance({ quiet: true }).catch(() => {});
+  const ankiCheck = checkAnki({ quiet: true }).catch(() => {});
+  await restoreLastFile().catch(() => {});
   await ankiCheck;
+  await loadLibrary({ quiet: true }).catch(() => {});
 
+  window.__ANKI_SCRIBE_BOOTED__ = true;
   setInterval(() => checkAnki({ quiet: true }), 60000);
 }

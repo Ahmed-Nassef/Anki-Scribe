@@ -287,6 +287,8 @@ class Store:
         self._lock = threading.RLock()
         self._page_locks: dict[tuple[str, int], threading.RLock] = {}
         self._extract_cache: dict[tuple[str, int], dict] = {}
+        self._ocr_jobs: dict[str, dict] = {}
+        self._ocr_lock = threading.RLock()
         self._load()
 
     # -- loading / persistence ------------------------------------------
@@ -1130,3 +1132,103 @@ class Store:
                 page.ocr_done = True
                 self._save_meta(doc)
         return page.lines, True
+
+    # -- background OCR --------------------------------------------------
+
+    def ocr_status(self, doc: Document) -> dict:
+        """Progress for the scanned pages of one document."""
+        with self._ocr_lock:
+            job = dict(self._ocr_jobs.get(doc.id) or {})
+        pending = [page.index for page in doc.pages if page.needs_ocr]
+        done = sum(1 for page in doc.pages if page.ocr_done)
+        total = done + len(pending)
+        running = bool(job.get("running"))
+        return {
+            "running": running,
+            "pending": len(pending),
+            "done": done,
+            "total": total,
+            "current": job.get("current"),
+            "error": str(job.get("error") or ""),
+            "failed": int(job.get("failed") or 0),
+            "cancelled": bool(job.get("cancelled")),
+            "percent": round(100 * done / total) if total else 100,
+            "finished": not running and not pending,
+        }
+
+    def start_ocr(self, doc: Document, *, background: bool = True) -> dict:
+        """OCR every page that has no text layer, in a daemon thread.
+
+        The worker renders each page, runs the same OCR engine used by the
+        viewer, writes the lines into ``meta.json`` and moves on. The upload and
+        library-open requests therefore stay fast; the client polls
+        :meth:`ocr_status` for progress.
+        """
+        if doc.kind == "transcript":
+            return self.ocr_status(doc)
+        pending = [page.index for page in doc.pages if page.needs_ocr]
+        if not pending:
+            return self.ocr_status(doc)
+        with self._ocr_lock:
+            existing = self._ocr_jobs.get(doc.id)
+            if existing and existing.get("running"):
+                return self.ocr_status(doc)
+            job = {
+                "running": True,
+                "current": pending[0],
+                "done": 0,
+                "failed": 0,
+                "error": "",
+                "cancelled": False,
+                "startedAt": time.time(),
+            }
+            self._ocr_jobs[doc.id] = job
+        if background:
+            threading.Thread(
+                target=self._ocr_worker,
+                args=(doc, pending, job),
+                name=f"ocr-{doc.id}",
+                daemon=True,
+            ).start()
+        else:
+            self._ocr_worker(doc, pending, job)
+        return self.ocr_status(doc)
+
+    def cancel_ocr(self, doc: Document) -> dict:
+        with self._ocr_lock:
+            job = self._ocr_jobs.get(doc.id)
+            if job and job.get("running"):
+                job["cancelled"] = True
+        return self.ocr_status(doc)
+
+    def _ocr_worker(self, doc: Document, pending: list[int], job: dict) -> None:
+        for position, index in enumerate(pending):
+            with self._ocr_lock:
+                if job.get("cancelled"):
+                    break
+                job["current"] = index
+            try:
+                with self._page_lock(doc.id, index):
+                    page = doc.pages[index]
+                    if page.needs_ocr:
+                        image_path = self.render_page(doc, index)
+                        lines = ocr_lines(image_path, page.width)
+                        page.lines = lines
+                        page.needs_ocr = False
+                        page.ocr_done = True
+                        self._save_meta(doc)
+                with self._ocr_lock:
+                    job["done"] = int(job.get("done", 0)) + 1
+            except Exception as exc:
+                with self._ocr_lock:
+                    job["failed"] = int(job.get("failed", 0)) + 1
+                    job["error"] = str(exc)
+                # A missing OCR engine or language pack will fail every page;
+                # stop instead of grinding through the whole document.
+                if isinstance(exc, (ImportError, RuntimeError)):
+                    break
+        with self._ocr_lock:
+            job["running"] = False
+            job["current"] = None
+            job["finishedAt"] = time.time()
+

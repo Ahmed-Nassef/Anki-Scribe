@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import heapq
 import math
+import re
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
@@ -18,6 +19,37 @@ from .fsrs import FSRS, FSRSCard, Rating
 
 MAX_CARDS = 10_000
 MAX_DAYS = 730
+_CLOZE_RE = re.compile(r"\{\{c(\d+)::")
+
+
+def item_counts(cards: list[dict]) -> dict:
+    """Count the things FSRS schedules in a list of draft/sent cards.
+
+    Q&A and figure cards count once; a cloze card counts once per distinct
+    deletion. Cards without a uid are still counted but cannot be de-duplicated.
+    """
+    seen: set[str] = set()
+    items = {"basic": 0, "cloze": 0, "figure": 0, "total": 0}
+    for card in cards:
+        if not isinstance(card, dict) or card.get("selected") is False:
+            continue
+        uid = str(card.get("uid") or card.get("id") or "")
+        if uid:
+            if uid in seen:
+                continue
+            seen.add(uid)
+        mode = str(card.get("mode") or "basic").lower()
+        if mode == "figure":
+            items["figure"] += 1
+        elif mode == "cloze":
+            text = str(card.get("text") or card.get("question") or "")
+            numbers = set(_CLOZE_RE.findall(text))
+            items["cloze"] += len(numbers) or 1
+        else:
+            items["basic"] += 1
+    items["total"] = items["basic"] + items["cloze"] + items["figure"]
+    return items
+
 
 
 @dataclass(frozen=True)

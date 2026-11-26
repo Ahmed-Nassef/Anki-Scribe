@@ -261,11 +261,17 @@ function updateLibraryBatchButton() {
   if (!els.libraryBatchBtn) return;
   const available = state.library.files.filter((file) => file.exists);
   const selected = available.filter((file) => state.librarySelection.has(file.id));
-  els.libraryBatchBtn.disabled =
-    !selected.length || state.batch.running || state.auto.running || state.generating;
+  const busy = state.batch.running || state.auto.running || state.generating;
+  els.libraryBatchBtn.disabled = !selected.length || busy;
   els.libraryBatchBtn.textContent = selected.length
     ? `Generate selected (${selected.length})`
     : "Generate selected";
+  if (els.libraryPlanBtn) {
+    els.libraryPlanBtn.disabled = !selected.length || busy;
+    els.libraryPlanBtn.textContent = selected.length
+      ? `Plan selected (${selected.length})`
+      : "Plan selected";
+  }
   if (els.librarySelectAllBtn) {
     els.librarySelectAllBtn.textContent =
       available.length && selected.length === available.length ? "Clear" : "Select all";
@@ -746,6 +752,26 @@ async function waitForDraftsReady(timeout = 30_000) {
     await batchSleep(100);
   }
   return Boolean(state.drafts.ready);
+}
+
+async function planSelectedLibraryFiles() {
+  if (state.batch.running || state.auto.running || state.generating) {
+    toast("Finish the current generation before planning.", "info", 4000);
+    return;
+  }
+  const selected = state.library.files.filter(
+    (file) => file.exists && state.librarySelection.has(file.id)
+  );
+  if (!selected.length) {
+    toast("Tick at least one library file first.", "info", 4000);
+    return;
+  }
+  if (els.libraryDialog.open) els.libraryDialog.close();
+  if (typeof openPlanDialog !== "function") {
+    toast("The study plan isn't available in this version.", "error", 5000);
+    return;
+  }
+  await openPlanDialog({ fileIds: selected.map((file) => file.id) });
 }
 
 async function runLibraryBatch() {

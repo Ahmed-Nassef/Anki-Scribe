@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>Anki Scribe</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="/static/css/styles.css?v=20261127d">
 </head>
 <body>
 <div class="app">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="top-actions">
-      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnect…">
+      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦">
         <span class="dot"></span><span id="ankiLabel">Anki</span>
       </button>
       <button type="button" class="credit-pill" id="aiBalanceStatus" title="DeepSeek balance">
@@ -125,6 +125,17 @@
         <span class="legend-item"><i class="legend-application"></i>Application</span>
         <span class="legend-item"><i class="legend-fact"></i>Fact</span>
         <span class="legend-item"><i class="legend-manual"></i>Hand-hidden</span>
+      </div>
+
+      <div class="ocr-banner" id="ocrBanner" hidden aria-live="polite">
+        <span class="spinner small" id="ocrSpinner"></span>
+        <div class="ocr-banner-copy">
+          <strong id="ocrBannerTitle">Reading scanned pages</strong>
+          <span id="ocrBannerDetail"></span>
+        </div>
+        <div class="ocr-track" role="progressbar" aria-label="OCR progress"><span id="ocrBannerBar"></span></div>
+        <button type="button" class="text-btn" id="ocrRetry" hidden>Retry</button>
+        <button type="button" class="text-btn danger" id="ocrCancel" hidden>Stop</button>
       </div>
 
       <div class="scroller" id="scroller">
@@ -283,7 +294,7 @@
               <p id="cardsMeta">No cards yet</p>
             </div>
             <div class="head-actions">
-              <button type="button" class="text-btn" id="planBtn" hidden title="Build a day-by-day schedule from your exam date and daily study time">Plan</button>
+              <button type="button" class="text-btn" id="planBtn" hidden title="Build a day-by-day schedule from your exam date and daily study time">Study plan</button>
               <button type="button" class="text-btn" id="undoBtn" disabled title="Nothing to undo">Undo</button>
               <button type="button" class="text-btn danger" id="clearHistory" hidden>Clear history</button>
               <button type="button" class="text-btn danger" id="clearCards" hidden>Clear all</button>
@@ -386,6 +397,7 @@
       <button type="button" class="btn small" id="libraryNewGroupBtn">+ New group</button>
       <button type="button" class="btn small" id="librarySelectAllBtn">Select all</button>
       <button type="button" class="btn primary small" id="libraryBatchBtn" disabled>Generate selected</button>
+      <button type="button" class="btn small" id="libraryPlanBtn" disabled>Plan selected</button>
       <label class="library-search">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7"/>
@@ -553,7 +565,7 @@
     <header class="modal-head">
       <div>
         <h2>Send to Anki</h2>
-        <p id="pushDialogSummary">Checking your collection…</p>
+        <p id="pushDialogSummary">Checking your collectionÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</p>
       </div>
       <button type="button" class="icon-btn" id="closePush" aria-label="Close">&times;</button>
     </header>
@@ -627,8 +639,15 @@
           <em class="plan-hint" id="planCardsHint"></em>
         </label>
         <label class="field">
-          <span>Minutes per day</span>
-          <input type="number" id="planMinutes" min="5" max="1440" step="5" value="60">
+          <span>Daily study window</span>
+          <div class="plan-inline">
+            <input type="time" id="planStart" value="08:00" aria-label="Study start time">
+            <span>to</span>
+            <input type="time" id="planEnd" value="22:00" aria-label="Study end time">
+            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00â€“23:59">All day</button>
+          </div>
+          <em class="plan-hint" id="planWindowHint"></em>
+          <input type="hidden" id="planMinutes" value="840">
         </label>
         <label class="field">
           <span>Review buffer</span>
@@ -750,23 +769,54 @@
 
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 <noscript><p style="padding:24px">Anki Scribe needs JavaScript enabled.</p></noscript>
-<script src="/static/js/core.js"></script>
-<script src="/static/js/risk.js"></script>
-<script src="/static/js/settings.js"></script>
-<script src="/static/js/drafts.js"></script>
-<script src="/static/js/deck.js"></script>
-<script src="/static/js/library.js"></script>
-<script src="/static/js/documents.js"></script>
-<script src="/static/js/source.js"></script>
-<script src="/static/js/answers.js"></script>
-<script src="/static/js/plan.js"></script>
-<script src="/static/js/cards.js"></script>
-<script src="/static/js/study.js"></script>
-<script src="/static/js/auto.js"></script>
-<script src="/static/js/coverage.js"></script>
-<script src="/static/js/triage.js"></script>
-<script src="/static/js/objectives.js"></script>
-<script src="/static/js/events.js"></script>
-<script src="/static/js/app.js"></script>
+<script src="/static/js/core.js?v=20261127d"></script>
+<script src="/static/js/risk.js?v=20261127d"></script>
+<script src="/static/js/settings.js?v=20261127d"></script>
+<script src="/static/js/drafts.js?v=20261127d"></script>
+<script src="/static/js/deck.js?v=20261127d"></script>
+<script src="/static/js/library.js?v=20261127d"></script>
+<script src="/static/js/documents.js?v=20261127d"></script>
+<script src="/static/js/source.js?v=20261127d"></script>
+<script src="/static/js/answers.js?v=20261127d"></script>
+<script src="/static/js/plan.js?v=20261127d"></script>
+<script src="/static/js/ocr.js?v=20261127d"></script>
+<script src="/static/js/cards.js?v=20261127d"></script>
+<script src="/static/js/study.js?v=20261127d"></script>
+<script src="/static/js/auto.js?v=20261127d"></script>
+<script src="/static/js/coverage.js?v=20261127d"></script>
+<script src="/static/js/triage.js?v=20261127d"></script>
+<script src="/static/js/objectives.js?v=20261127d"></script>
+<script src="/static/js/events.js?v=20261127d"></script>
+<script src="/static/js/app.js?v=20261127d"></script>
+<script>
+  // A stale cached client used to leave the page looking alive with dead
+  // buttons. Reload once if app.js is from an older asset version; only show a
+  // notice if the version matches but boot still hasn't finished.
+  (function () {
+    var version = "20261127d";
+    function notice() {
+      var el = document.createElement("div");
+      el.textContent = "Anki Scribe didn't finish loading. Refresh the page (Ctrl+R).";
+      el.style.cssText =
+        "position:fixed;left:16px;bottom:16px;z-index:9999;padding:10px 14px;" +
+        "border-radius:8px;background:#7a2e2e;color:#fff;font:13px system-ui;";
+      document.body.appendChild(el);
+    }
+    setTimeout(function () {
+      if (window.__ANKI_SCRIBE_CLIENT__ === version) return;
+      var tried = false;
+      try {
+        tried = sessionStorage.getItem("ankiScribeBootRecovery") === "1";
+        sessionStorage.setItem("ankiScribeBootRecovery", "1");
+      } catch (error) {}
+      if (tried) notice();
+      else location.reload();
+    }, 1800);
+    setTimeout(function () {
+      if (window.__ANKI_SCRIBE_CLIENT__ !== version) return;
+      if (!window.__ANKI_SCRIBE_BOOTED__) notice();
+    }, 8000);
+  })();
+</script>
 </body>
 </html>
