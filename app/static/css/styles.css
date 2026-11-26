@@ -3087,3 +3087,233 @@ details.advanced summary:hover { color: var(--ink); }
   font-size: 9.5px;
   color: var(--muted-2);
 }
+
+/* ---------- focused study mode ---------- */
+
+body.is-studying {
+  background: #151a17;
+  overflow: hidden;
+}
+body.is-studying .topbar,
+body.is-studying .panel,
+body.is-studying .stage-toolbar,
+body.is-studying .answer-legend,
+body.is-studying .ocr-banner {
+  display: none !important;
+}
+body.is-studying main {
+  grid-template-columns: minmax(0, 1fr);
+  background: #151a17;
+}
+body.is-studying .stage {
+  background: #151a17;
+}
+body.is-studying .scroller {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.055), transparent 36%),
+    #151a17;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+body.is-studying .pages {
+  padding-top: 78px;
+  padding-bottom: 92px;
+  gap: 34px;
+}
+body.is-studying .page {
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+body.is-studying .page-chip {
+  display: none;
+}
+body.is-studying #toasts {
+  display: none;
+}
+body.is-studying .empty {
+  color: #cfd8d1;
+}
+
+.study-hud {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  width: min(1120px, calc(100vw - 28px));
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 9px 14px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  background: rgba(20, 25, 22, 0.94);
+  color: #e8efe9;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+}
+.study-hud[hidden] { display: none; }
+.study-hud-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.study-hud-kicker {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #8aa896;
+}
+.study-hud-doc strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.study-hud-page {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+.study-hud-page strong {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.study-hud-page span {
+  font-size: 8.5px;
+  color: #9fb3a4;
+}
+.study-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.study-hud-btn {
+  min-width: 29px;
+  height: 29px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8efe9;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.study-hud-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+.study-hud-btn.is-active {
+  border-color: #8fc9ad;
+  background: rgba(143, 201, 173, 0.2);
+}
+.study-hud-btn.is-exit {
+  border-color: rgba(228, 155, 143, 0.45);
+  color: #f0c4bc;
+}
+.study-progress {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 3px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.study-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #8fc9ad;
+  transition: width 0.25s ease;
+}
+
+.study-help {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(5, 8, 6, 0.62);
+  backdrop-filter: blur(5px);
+}
+.study-help[hidden] { display: none; }
+.study-help-card {
+  width: min(420px, 100%);
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1d2520;
+  color: #e8efe9;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+.study-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 13px;
+}
+.study-help-head strong { font-size: 13px; }
+.study-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+}
+.study-keys > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.study-keys dt {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #9fd3b6;
+}
+.study-keys dd {
+  margin: 0;
+  font-size: 10px;
+  color: #c6d2c9;
+  text-align: right;
+}
+.study-help-note {
+  margin: 14px 0 0;
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: #9fb3a4;
+}
+
+@media (max-width: 720px) {
+  .study-hud {
+    gap: 8px;
+    padding: 7px 9px 9px;
+  }
+  .study-hud-actions { gap: 3px; }
+  .study-hud-btn { padding: 0 6px; }
+  .study-hud-btn#studyToggleAnswers { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+  body.is-studying .pages { padding-top: 66px; }
+}
+
+/* In focus mode the answer cover stays visible when revealed, just fainter:
+   the student can see the answer text through it and can find the blank again
+   to hide it. It never becomes a white-on-white invisible box. */
+body.is-studying .answer-mask::after {
+  display: none;
+}
+body.is-studying .answer-mask.is-revealed {
+  opacity: 0.34;
+}

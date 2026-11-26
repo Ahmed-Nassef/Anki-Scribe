@@ -77,6 +77,7 @@ const state = {
   },
   plan: { request: 0, result: null, payload: null, scopeIds: [], sources: [], approximate: false },
   ocr: { docId: "", timer: null, request: 0, started: false, lastDone: 0, status: null },
+  focus: { active: false, previousAnswers: false },
   figureMode: false,
   imageCrop: null,
   imageTarget: null,

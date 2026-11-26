@@ -3,6 +3,7 @@
 /* Document viewers, pages, transcripts and selection */
 
 function loadDocument(doc) {
+  if (typeof exitStudyMode === "function") exitStudyMode({ restoreAnswers: false });
   flushDrafts({ beacon: true });
   resetDrafts();
   resetSent();
@@ -380,7 +381,7 @@ function scrollViewerTo(element) {
     element.getBoundingClientRect().top -
     els.scroller.getBoundingClientRect().top +
     els.scroller.scrollTop -
-    8;
+    (state.focus?.active ? 74 : 8);
   els.scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 }
 
@@ -401,6 +402,7 @@ function setActivePage(index) {
   els.pagePill.textContent = `${index + 1} / ${count}`;
   els.prevPage.disabled = index <= 0;
   els.nextPage.disabled = index >= count - 1;
+  if (typeof updateStudyHud === "function") updateStudyHud();
 }
 
 /* ------------------------------------------------------------------ */

@@ -132,6 +132,7 @@ function updateAnswerToolbar() {
   els.pages.classList.toggle("is-hiding-answers", active);
   if (els.answerLegend) els.answerLegend.hidden = !(active && count > 0);
   updateHideSelectionButton();
+  if (typeof updateStudyHud === "function") updateStudyHud();
 }
 
 function updateHideSelectionButton() {

@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>Anki Scribe</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/styles.css?v=20261127f">
+  <link rel="stylesheet" href="/static/css/styles.css?v=20261127h">
 </head>
 <body>
 <div class="app">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="top-actions">
-      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦">
+      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦">
         <span class="dot"></span><span id="ankiLabel">Anki</span>
       </button>
       <button type="button" class="credit-pill" id="aiBalanceStatus" title="DeepSeek balance">
@@ -82,6 +82,7 @@
         </div>
         <button type="button" class="btn tiny" id="fitBtn">Fit width</button>
         <button type="button" class="btn tiny" id="figureBtn" title="Draw a box on a figure or a label to make an image card">Figure</button>
+        <button type="button" class="btn tiny" id="studyModeBtn" title="Distraction-free study mode (F)">Study mode</button>
         <div class="answer-tools">
           <button type="button" class="btn tiny" id="hideAnswersBtn" aria-pressed="false"
                   title="Hide the answers your cards point at on the page; click a blank to reveal it">
@@ -380,6 +381,44 @@
       </div>
     </aside>
   </main>
+
+<div class="study-hud" id="studyHud" hidden aria-live="polite">
+  <div class="study-hud-doc">
+    <span class="study-hud-kicker">Study mode</span>
+    <strong id="studyDocTitle"></strong>
+  </div>
+  <div class="study-hud-page">
+    <strong id="studyPage">1 / 1</strong>
+    <span id="studyAnswersMeta"></span>
+  </div>
+  <div class="study-hud-actions">
+    <button type="button" class="study-hud-btn" id="focusPrev" title="Previous page (Left / PageUp)">&lsaquo;</button>
+    <button type="button" class="study-hud-btn" id="focusNext" title="Next page (Right / PageDown)">&rsaquo;</button>
+    <button type="button" class="study-hud-btn" id="studyToggleAnswers" title="Toggle answers (Space)">Reveal answers</button>
+    <button type="button" class="study-hud-btn" id="studyHelpBtn" title="Keyboard shortcuts (?)">?</button>
+    <button type="button" class="study-hud-btn" id="studyFullscreen" title="Browser fullscreen">&#x26F6;</button>
+    <button type="button" class="study-hud-btn is-exit" id="studyExit" title="Leave study mode (Esc)">Exit</button>
+  </div>
+  <div class="study-progress"><span id="studyProgressBar"></span></div>
+</div>
+
+<div class="study-help" id="studyHelp" hidden role="dialog" aria-label="Study mode shortcuts">
+  <div class="study-help-card">
+    <div class="study-help-head">
+      <strong>Study mode</strong>
+      <button type="button" class="icon-btn" id="studyHelpClose" aria-label="Close">&times;</button>
+    </div>
+    <dl class="study-keys">
+      <div><dt>Space</dt><dd>Reveal / hide answers</dd></div>
+      <div><dt>&rarr; / PageDown</dt><dd>Next page</dd></div>
+      <div><dt>&larr; / PageUp</dt><dd>Previous page</dd></div>
+      <div><dt>R / H</dt><dd>Reveal all / hide all</dd></div>
+      <div><dt>F</dt><dd>Toggle study mode</dd></div>
+      <div><dt>Esc</dt><dd>Close help or leave study mode</dd></div>
+    </dl>
+    <p class="study-help-note">Click a blank to reveal it, then click the revealed text to hide it again. Selection still works.</p>
+  </div>
+</div>
 </div>
 
 <dialog class="modal library-modal" id="libraryDialog">
@@ -565,7 +604,7 @@
     <header class="modal-head">
       <div>
         <h2>Send to Anki</h2>
-        <p id="pushDialogSummary">Checking your collectionÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</p>
+        <p id="pushDialogSummary">Checking your collectionÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</p>
       </div>
       <button type="button" class="icon-btn" id="closePush" aria-label="Close">&times;</button>
     </header>
@@ -644,7 +683,7 @@
             <input type="time" id="planStart" value="08:00" aria-label="Study start time">
             <span>to</span>
             <input type="time" id="planEnd" value="22:00" aria-label="Study end time">
-            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00â€“23:59">All day</button>
+            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“23:59">All day</button>
           </div>
           <em class="plan-hint" id="planWindowHint"></em>
           <input type="hidden" id="planMinutes" value="840">
@@ -769,31 +808,32 @@
 
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 <noscript><p style="padding:24px">Anki Scribe needs JavaScript enabled.</p></noscript>
-<script src="/static/js/core.js?v=20261127f"></script>
-<script src="/static/js/risk.js?v=20261127f"></script>
-<script src="/static/js/settings.js?v=20261127f"></script>
-<script src="/static/js/drafts.js?v=20261127f"></script>
-<script src="/static/js/deck.js?v=20261127f"></script>
-<script src="/static/js/library.js?v=20261127f"></script>
-<script src="/static/js/documents.js?v=20261127f"></script>
-<script src="/static/js/source.js?v=20261127f"></script>
-<script src="/static/js/answers.js?v=20261127f"></script>
-<script src="/static/js/plan.js?v=20261127f"></script>
-<script src="/static/js/ocr.js?v=20261127f"></script>
-<script src="/static/js/cards.js?v=20261127f"></script>
-<script src="/static/js/study.js?v=20261127f"></script>
-<script src="/static/js/auto.js?v=20261127f"></script>
-<script src="/static/js/coverage.js?v=20261127f"></script>
-<script src="/static/js/triage.js?v=20261127f"></script>
-<script src="/static/js/objectives.js?v=20261127f"></script>
-<script src="/static/js/events.js?v=20261127f"></script>
-<script src="/static/js/app.js?v=20261127f"></script>
+<script src="/static/js/core.js?v=20261127h"></script>
+<script src="/static/js/risk.js?v=20261127h"></script>
+<script src="/static/js/settings.js?v=20261127h"></script>
+<script src="/static/js/drafts.js?v=20261127h"></script>
+<script src="/static/js/deck.js?v=20261127h"></script>
+<script src="/static/js/library.js?v=20261127h"></script>
+<script src="/static/js/documents.js?v=20261127h"></script>
+<script src="/static/js/source.js?v=20261127h"></script>
+<script src="/static/js/answers.js?v=20261127h"></script>
+<script src="/static/js/plan.js?v=20261127h"></script>
+<script src="/static/js/ocr.js?v=20261127h"></script>
+<script src="/static/js/focus.js?v=20261127h"></script>
+<script src="/static/js/cards.js?v=20261127h"></script>
+<script src="/static/js/study.js?v=20261127h"></script>
+<script src="/static/js/auto.js?v=20261127h"></script>
+<script src="/static/js/coverage.js?v=20261127h"></script>
+<script src="/static/js/triage.js?v=20261127h"></script>
+<script src="/static/js/objectives.js?v=20261127h"></script>
+<script src="/static/js/events.js?v=20261127h"></script>
+<script src="/static/js/app.js?v=20261127h"></script>
 <script>
   // A stale cached client used to leave the page looking alive with dead
   // buttons. Reload once if app.js is from an older asset version; only show a
   // notice if the version matches but boot still hasn't finished.
   (function () {
-    var version = "20261127f";
+    var version = "20261127h";
     function notice() {
       var el = document.createElement("div");
       el.textContent = "Anki Scribe didn't finish loading. Refresh the page (Ctrl+R).";

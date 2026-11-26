@@ -431,6 +431,7 @@ function bindEvents() {
   bindAnswerEvents();
   bindPlanEvents();
   if (typeof bindOcrEvents === "function") bindOcrEvents();
+  if (typeof bindFocusEvents === "function") bindFocusEvents();
 
   window.addEventListener("dragover", (event) => {
     if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes("Files")) {

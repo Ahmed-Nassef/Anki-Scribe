@@ -2,7 +2,7 @@
 
 /* Application bootstrap: DOM references, startup and periodic checks. */
 
-window.__ANKI_SCRIBE_CLIENT__ = "20261127f";
+window.__ANKI_SCRIBE_CLIENT__ = "20261127h";
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
@@ -21,7 +21,11 @@ async function init() {
     "closeCoverage", "closeCoverageBtn",
     "pagePill", "prevPage", "nextPage", "stageToolbar", "scroller", "emptyState",
     "chooseBtn", "pages", "uploading", "uploadText",
-    "zoomOut", "zoomIn", "zoomLabel", "fitBtn", "figureBtn", "selectionMeta", "clearSelection",
+    "zoomOut", "zoomIn", "zoomLabel", "fitBtn", "figureBtn", "studyModeBtn",
+    "studyHud", "studyDocTitle", "studyPage", "studyAnswersMeta", "focusPrev",
+    "focusNext", "studyToggleAnswers", "studyHelpBtn", "studyFullscreen",
+    "studyExit", "studyHelp", "studyHelpClose", "studyProgressBar",
+    "selectionMeta", "clearSelection",
     "hideAnswersBtn", "hideAnswersLabel", "hideAnswersCount", "hideSelectionBtn",
     "revealAnswersBtn", "clearMasksBtn", "toolbarHint", "aiAnswersBtn", "aiAnswersLabel",
     "answerLegend", "ocrBanner", "ocrSpinner", "ocrBannerTitle", "ocrBannerDetail",

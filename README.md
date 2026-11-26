@@ -1,6 +1,6 @@
 > Tracking repository for the Anki Scribe learning system: card generation,
 > hidden-answer study view, automatic OCR, FSRS-6 planning across files, and
-> batch generation.
+> focused study mode.
 
 # Anki Scribe
 
@@ -83,6 +83,14 @@ Built for med school: no retyping answers, no writing questions by hand.
   cards the local matcher missed; it is one extra click, not a replacement for
   the automatic masks. You can also select any text and press **Hide
   selection** to add your own blank.
+- **Focused study mode**: press **Study mode** in the page toolbar or **F**.
+  The side panel, toolbar, pager and legends disappear; the pages fill the
+  screen with a small HUD. **Space** reveals or hides all answers, **R/H**
+  reveal/hide, **Right/PageDown** and **Left/PageUp** move a page, **?** shows
+  the shortcuts, and **Esc** leaves. Clicking a blank still reveals it, and
+  clicking the revealed text hides it again. In study mode a revealed answer
+  keeps a faint tint instead of the cover vanishing, so the blank is still
+  findable; the page itself uses plain, solid covers in this mode.
 - **Study plan**: give it an exam date, the number of study items you need to
   learn and the hours you can study each day, or select several Library files
   and press **Plan selected**. It counts Q&A cards, every distinct cloze
@@ -371,6 +379,16 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   and headings are left alone, because they orient you rather than test you.
   Untick a card and its answer stays visible. The toggle is remembered in this
   browser; manual hides are saved per file.
+- **Study mode:** click **Study mode** above the pages (or press <kbd>F</kbd>).
+  The page gets the whole window and the generation UI disappears. A small
+  HUD shows the file, page and hidden-answer count. Use <kbd>Space</kbd> to
+  reveal/hide all answers, <kbd>R</kbd>/<kbd>H</kbd> for all pages,
+  <kbd>→</kbd>/<kbd>PageDown</kbd> or <kbd>J</kbd> for the next page,
+  <kbd>←</kbd>/<kbd>PageUp</kbd> or <kbd>K</kbd> for the previous, and
+  <kbd>?</kbd> for the shortcut card. <kbd>Esc</kbd> or **Exit** leaves.
+  The HUD's fullscreen button uses browser fullscreen. Entering study mode turns
+  hidden answers on when the file has cards; leaving restores your previous
+  setting.
 - **Study plan:** click **Study plan** above Review. It asks for the exam date,
   how many study items you still need to learn, your daily study window
   (start and end time, or **All day** for 00:00–23:59), which weekdays you
@@ -576,6 +594,8 @@ app/
       source.js    source lookup and highlighting
       answers.js   hidden-answer overlays and manual hides
       plan.js      FSRS-6 study-plan dialog
+      ocr.js       automatic OCR progress and retry
+      focus.js     distraction-free study mode
       cards.js     generation, review cards and editing
       study.js     study view, cloze masking and sheet export
       auto.js      chapter-aware whole-file generation
@@ -588,5 +608,7 @@ run.py           port selection + browser launch
 run.bat          double-click launcher
 tests/           unit and API tests
 ```
+
+See [ROADMAP.md](ROADMAP.md) for what is shipped and what is still missing.
 
 There is no frontend build step: the browser loads these plain scripts in dependency order.
