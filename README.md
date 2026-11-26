@@ -500,6 +500,7 @@ Everything lives in `%LOCALAPPDATA%\AnkiScribe`:
 | A library file shows Missing | The file was moved/renamed. Put it back at the saved path, or remove it from the library and add it again from its new location. |
 | OCR text looks broken | Use a sharper, straighter photo; crop to the text; increase resolution. PDFs with a real text layer are always better. |
 | A page has no selectable text | Check the OCR progress strip above the pages. If it says OCR stopped, press **Retry**; if it already finished, the scan is too low quality — use a sharper, straighter scan. |
+| **Plan selected** says the server is older | The client counted the files directly from their drafts, sent history and manual hides; the plan still works. Restart Anki Scribe to load the newest server and automatic OCR. |
 | A slide deck looks different from PowerPoint | Decks are read, not rendered: text keeps its position, size and order, but fonts and exact spacing are approximated. Export to PDF if the layout matters. |
 | A transcript has no readable text | Make sure it is `.srt`, `.vtt`, `.txt` or `.md`; subtitles need timestamp lines with `-->`. Plain text is split into paragraphs. |
 | Transcript characters look wrong | Save it as UTF-8. Windows-1252, UTF-16 and Latin-1 are also tried automatically. |

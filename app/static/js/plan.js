@@ -78,6 +78,73 @@ function planBreakdownText(items, sourceCount = 0) {
   }`;
 }
 
+function planFallbackSources(fileIds) {
+  const files = Array.isArray(state.library.files) ? state.library.files : [];
+  const rows = [];
+  for (const id of fileIds) {
+    const file = files.find((item) => String(item.id) === String(id));
+    if (!file) continue;
+    const count =
+      (Number(file.draftCount) || 0) + (Number(file.sentCount) || 0);
+    rows.push({
+      fileId: file.id,
+      name: file.name,
+      basic: count,
+      cloze: 0,
+      figure: 0,
+      manual: 0,
+      total: count,
+      approximate: true,
+    });
+  }
+  return rows;
+}
+
+function planCountCards(cards) {
+  const seen = new Set();
+  const items = { basic: 0, cloze: 0, figure: 0, manual: 0, total: 0 };
+  for (const card of cards) {
+    if (!card || card.selected === false) continue;
+    const uid = String(card.uid || card.id || "");
+    if (uid) {
+      if (seen.has(uid)) continue;
+      seen.add(uid);
+    }
+    if (card.mode === "figure") items.figure += 1;
+    else if (card.mode === "cloze") items.cloze += planClozeItems(card);
+    else items.basic += 1;
+  }
+  items.total = items.basic + items.cloze + items.figure + items.manual;
+  return items;
+}
+
+async function planDirectSources(fileIds) {
+  const files = Array.isArray(state.library.files) ? state.library.files : [];
+  const rows = [];
+  for (const id of fileIds) {
+    const file = files.find((item) => String(item.id) === String(id));
+    if (!file) continue;
+    const path = encodeURIComponent(file.path);
+    const [drafts, sent, masks] = await Promise.all([
+      api(`/api/drafts?path=${path}`).catch(() => ({ cards: [] })),
+      api(`/api/sent?path=${path}`).catch(() => ({ cards: [] })),
+      api(`/api/masks?path=${path}`).catch(() => ({ masks: [] })),
+    ]);
+    const items = planCountCards([
+      ...(Array.isArray(drafts.cards) ? drafts.cards : []),
+      ...(Array.isArray(sent.cards) ? sent.cards : []),
+    ]);
+    items.manual = Array.isArray(masks.masks) ? masks.masks.length : 0;
+    items.total = items.basic + items.cloze + items.figure + items.manual;
+    rows.push({
+      fileId: file.id,
+      name: file.name,
+      ...items,
+    });
+  }
+  return rows;
+}
+
 function updatePlanAvailability() {
   if (!els.planCards) return;
   const items = planScopeItems();
@@ -87,7 +154,9 @@ function updatePlanAvailability() {
     els.planCards.value = String(available);
   }
   const sourceCount = state.plan.scopeIds.length || 0;
-  els.planCardsHint.textContent = planBreakdownText(items, sourceCount);
+  els.planCardsHint.textContent =
+    planBreakdownText(items, sourceCount) +
+    (state.plan.approximate ? " \u00b7 approximate" : "");
 }
 
 function planLocalIso(day) {
@@ -227,6 +296,7 @@ async function openPlanDialog(options = {}) {
   const fileIds = Array.isArray(options?.fileIds) ? options.fileIds : [];
   state.plan.scopeIds = fileIds;
   state.plan.sources = [];
+  state.plan.approximate = false;
   if (fileIds.length) {
     try {
       const data = await api("/api/plan/sources", {
@@ -236,7 +306,26 @@ async function openPlanDialog(options = {}) {
       });
       state.plan.sources = Array.isArray(data.files) ? data.files : [];
     } catch (error) {
-      toast(`Couldn't count the selected files: ${error.message}`, "error", 7000);
+      // A server started before the multi-file endpoint existed returns 404.
+      // The older drafts/sent/masks endpoints still exist, so count exactly
+      // from those before falling back to coarse library counts.
+      try {
+        state.plan.sources = await planDirectSources(fileIds);
+        state.plan.approximate = false;
+        toast(
+          "The running server is older; counts were read directly from drafts and history. Restart Anki Scribe when convenient.",
+          "info",
+          9000
+        );
+      } catch (fallbackError) {
+        state.plan.sources = planFallbackSources(fileIds);
+        state.plan.approximate = true;
+        toast(
+          "The running server is older; using approximate card counts. Restart Anki Scribe for exact cloze and hidden-answer counts.",
+          "info",
+          10000
+        );
+      }
     }
   }
   if (!state.doc && !fileIds.length) {
@@ -329,12 +418,16 @@ function updatePlanNote(available) {
     (sent && !sourceCount
       ? `${sent} cards are already in Anki; the plan treats every item as new because it cannot read Anki's review history. `
       : "") +
+    (state.plan.approximate
+      ? "These are approximate card counts from the library; restart the app for exact cloze and hidden-answer counts. "
+      : "") +
     "Each cloze deletion counts once, answers you hid by hand count as items, and every item is treated as new. Card creation and reading time are the per-card estimate below.";
 }
 
 function closePlanDialog() {
   state.plan.scopeIds = [];
   state.plan.sources = [];
+  state.plan.approximate = false;
   if (els.planDialog && els.planDialog.open) els.planDialog.close();
 }
 
