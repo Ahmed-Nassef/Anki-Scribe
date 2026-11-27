@@ -208,6 +208,17 @@ function bindEvents() {
       if (event.target === els.studyStatsDialog) closeStudyStats();
     });
   }
+  if (els.moreMenu) {
+    els.moreMenu.querySelectorAll("button").forEach((button) => {
+      button.addEventListener("click", () => {
+        els.moreMenu.open = false;
+      });
+    });
+    document.addEventListener("click", (event) => {
+      if (!els.moreMenu.open) return;
+      if (!els.moreMenu.contains(event.target)) els.moreMenu.open = false;
+    });
+  }
   els.studyAnswer.addEventListener("click", () => {
     const selection = window.getSelection();
     if (selection && String(selection).length) return;

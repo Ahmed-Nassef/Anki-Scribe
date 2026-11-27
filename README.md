@@ -350,13 +350,15 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   teal highlights correct after a push, and it is what a later version will use
   to read your review results back. **Clear history** forgets the record for one
   source without touching Anki; it asks twice.
-- **Quality faults:** the review header also counts cards that cannot be
-  answered as written. **Send to Anki** refuses such a batch and lists each
-  card with its reason; fix the card, or choose **Send anyway** if you
-  disagree. Warnings (a short question, an untagged card, two cards with
-  nearly the same front) are shown but never block. Types and faults are
-  decided by the server on the cards as submitted, so edits are always
-  honoured.
+- **Quality faults:** cards that cannot be answered as written trigger a red
+  **blocked** banner above the list. **Review blocked** filters the list to
+  those cards, which get a red border and badge; fix the card and the red state
+  clears. **Push anyway** is an explicit bypass. Warnings (a short question, an
+  untagged card, two cards with nearly the same front) are shown but never
+  block. Types and faults are decided by the server on the cards as submitted,
+  so edits are always honoured. Secondary actions such as **Stats**,
+  **Study plan**, **Leeches** and **Clear** live under **More** in the Review
+  header.
 - **Unverified cards:** if the quote a card cites is not in the source, the card
   wears a **check** badge and the Review header counts it. Check those against
   the page before sending, or generate again.
@@ -393,10 +395,10 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   browser; manual hides are saved per file.
 - **Blocked cards:** the quality gate refuses a push when a card has an empty
   side, an open-ended question, an answer leaked into the question, or more than
-  three/too-long cloze deletions. The Review header shows **Blocked N**. Click it
-  to filter the list to those cards; they get a red left border and a red
-  `blocked` badge, with the reason in the toast/badge. Fix the card and the red
-  state clears. **Push anyway** is available for an explicit bypass, and batch
+  three/too-long cloze deletions. A red banner above the list shows the count
+  with **Review blocked** and **Push anyway**. Review blocked filters the list to
+  those cards; they get a red left border and a red `blocked` badge, with the
+  reason in the toast/badge. Fix the card and the red state clears. Batch
   auto-send leaves blocked cards in drafts instead of pushing them.
 - **Study mode:** click **Study mode** above the pages (or press <kbd>F</kbd>).
   The page gets the whole window and the generation UI disappears. A small

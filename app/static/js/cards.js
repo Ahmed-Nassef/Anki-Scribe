@@ -875,23 +875,32 @@ function updateCardsMeta() {
 }
 
 function updateBlockedButton() {
-  if (!els.blockedBtn) return;
   const count = state.cards.filter((card) => blockingFaults(card).length).length;
   if (count === 0 && state.blockedOnly) {
     state.blockedOnly = false;
     renderCards();
     return;
   }
-  els.blockedBtn.hidden = count === 0;
-  els.blockedBtn.textContent = state.blockedOnly
-    ? `Show all (${count})`
-    : `Blocked ${count}`;
-  els.blockedBtn.classList.toggle("is-active", state.blockedOnly);
-  els.blockedBtn.setAttribute("aria-pressed", state.blockedOnly ? "true" : "false");
-  els.blockedBtn.title = state.blockedOnly
-    ? "Show the full review list again"
-    : `Show only the ${count} card${count === 1 ? "" : "s"} the quality gate would block`;
-  if (els.pushBlockedBtn) els.pushBlockedBtn.hidden = count === 0;
+  if (els.blockedBanner) els.blockedBanner.hidden = count === 0;
+  if (els.blockedBannerTitle) {
+    els.blockedBannerTitle.textContent = state.blockedOnly
+      ? `Showing ${count} blocked card${count === 1 ? "" : "s"}`
+      : `${count} blocked card${count === 1 ? "" : "s"}`;
+  }
+  if (els.blockedBannerText) {
+    els.blockedBannerText.textContent = state.blockedOnly
+      ? "Fix each red card below, then show the full list again."
+      : "These cards cannot be sent until the quality faults are fixed.";
+  }
+  if (els.blockedBtn) {
+    els.blockedBtn.textContent = state.blockedOnly
+      ? "Show all"
+      : `Review blocked (${count})`;
+    els.blockedBtn.setAttribute("aria-pressed", state.blockedOnly ? "true" : "false");
+  }
+  if (els.pushBlockedBtn) {
+    els.pushBlockedBtn.hidden = count === 0;
+  }
 }
 
 function updateRiskButton(total) {
