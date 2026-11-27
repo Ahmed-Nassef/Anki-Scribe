@@ -22,6 +22,9 @@ tested, not “mostly working”.
 - **Anki review history and leeches**: reads `notesInfo`/`cardsInfo` for pushed
   note ids, shows reviewed/lapsed/leech totals, lists cards with 4+ lapses, and
   moves to the source page when it is the open file
+- **Study card sessions**: active recall with Again/Hard/Good/Easy grading,
+  local due dates/intervals, due-first ordering, session summary and lifetime
+  analytics (sessions, days, streak, retention, average time, due/new)
 - **Focused study mode**: full-screen pages, minimal HUD, keyboard-first
   navigation and answer control (see below)
 - Anki push, deck picker, coverage, source map, figure cards

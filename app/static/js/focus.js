@@ -143,6 +143,11 @@ async function toggleStudyFullscreen() {
 
 function bindFocusEvents() {
   if (els.studyModeBtn) els.studyModeBtn.addEventListener("click", enterStudyMode);
+  if (els.studyQuizBtn) {
+    els.studyQuizBtn.addEventListener("click", () => {
+      if (typeof openStudy === "function") openStudy();
+    });
+  }
   if (els.studyExit) els.studyExit.addEventListener("click", () => exitStudyMode());
   if (els.focusPrev) els.focusPrev.addEventListener("click", studyPreviousPage);
   if (els.focusNext) els.focusNext.addEventListener("click", studyNextPage);

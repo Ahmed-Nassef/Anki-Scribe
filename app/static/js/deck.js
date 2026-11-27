@@ -604,6 +604,19 @@ function openBlockedDialog(detail, groups) {
     why.className = "push-count";
     why.textContent = (entry.faults || []).map((fault) => fault.label).join(" \u00b7 ");
     row.append(name, why);
+    if (entry.uid) {
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "text-btn";
+      open.textContent = "Open";
+      open.title = "Close this dialog and open the blocked card for editing";
+      open.addEventListener("click", () => {
+        closePushDialog();
+        state.pendingPush = null;
+        focusCard(entry.uid);
+      });
+      row.appendChild(open);
+    }
     els.pushDialogDetail.appendChild(row);
   });
   els.pushSendNew.hidden = true;

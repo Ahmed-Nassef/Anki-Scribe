@@ -2,7 +2,7 @@
 
 /* Application bootstrap: DOM references, startup and periodic checks. */
 
-window.__ANKI_SCRIBE_CLIENT__ = "20261127i";
+window.__ANKI_SCRIBE_CLIENT__ = "20261127k";
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
@@ -53,7 +53,10 @@ async function init() {
     "studyDialog", "studyBody", "studyTitle", "studySection", "studyCounter",
     "studyQuestion", "studyAnswer", "studyAnswerText", "studyDetail",
     "studyReveal", "studyRevealLabel", "studyRevealHint", "studyPrev",
-    "studyNext", "studyBar", "closeStudy",
+    "studyNext", "studyBar", "closeStudy", "studyStatsBtn", "studyLiveTime",
+    "studyLiveAccuracy", "studyLiveStreak", "studyGrades", "studySummary",
+    "studyStatsDialog", "closeStudyStats", "studyStatsBody", "studyStatsClose",
+    "studyQuizBtn",
     "refreshDecks", "extraTags", "pushBtn", "pushLabel", "pushStatus", "panelScroll",
     "browseDecksBtn", "renameDeckBtn", "newSubdeckBtn", "deckDialog", "deckForm",
     "closeDecks", "cancelDecks", "deckSearch", "deckList", "deckSelectedLabel",

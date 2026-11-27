@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>Anki Scribe</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/styles.css?v=20261127i">
+  <link rel="stylesheet" href="/static/css/styles.css?v=20261127k">
 </head>
 <body>
 <div class="app">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="top-actions">
-      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦">
+      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦">
         <span class="dot"></span><span id="ankiLabel">Anki</span>
       </button>
       <button type="button" class="credit-pill" id="aiBalanceStatus" title="DeepSeek balance">
@@ -295,6 +295,7 @@
               <p id="cardsMeta">No cards yet</p>
             </div>
             <div class="head-actions">
+              <button type="button" class="text-btn" id="studyStatsBtn" hidden title="Lifetime review analytics">Stats</button>
               <button type="button" class="text-btn" id="planBtn" hidden title="Build a day-by-day schedule from your exam date and daily study time">Study plan</button>
               <button type="button" class="text-btn" id="leechesBtn" hidden title="Cards with repeated lapses in Anki">Leeches</button>
               <button type="button" class="text-btn" id="undoBtn" disabled title="Nothing to undo">Undo</button>
@@ -396,6 +397,7 @@
     <button type="button" class="study-hud-btn" id="focusPrev" title="Previous page (Left / PageUp)">&lsaquo;</button>
     <button type="button" class="study-hud-btn" id="focusNext" title="Next page (Right / PageDown)">&rsaquo;</button>
     <button type="button" class="study-hud-btn" id="studyToggleAnswers" title="Toggle answers (Space)">Reveal answers</button>
+    <button type="button" class="study-hud-btn" id="studyQuizBtn" title="Start an active-recall quiz">Quiz</button>
     <button type="button" class="study-hud-btn" id="studyHelpBtn" title="Keyboard shortcuts (?)">?</button>
     <button type="button" class="study-hud-btn" id="studyFullscreen" title="Browser fullscreen">&#x26F6;</button>
     <button type="button" class="study-hud-btn is-exit" id="studyExit" title="Leave study mode (Esc)">Exit</button>
@@ -605,7 +607,7 @@
     <header class="modal-head">
       <div>
         <h2>Send to Anki</h2>
-        <p id="pushDialogSummary">Checking your collectionÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</p>
+        <p id="pushDialogSummary">Checking your collectionÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</p>
       </div>
       <button type="button" class="icon-btn" id="closePush" aria-label="Close">&times;</button>
     </header>
@@ -629,6 +631,11 @@
         <p class="study-kicker">Study &middot; answers hidden</p>
         <h2 id="studyTitle">Study sheet</h2>
       </div>
+      <div class="study-live" aria-live="polite">
+        <span id="studyLiveTime">0:00</span>
+        <span id="studyLiveAccuracy">&mdash;</span>
+        <span id="studyLiveStreak">0 streak</span>
+      </div>
       <button type="button" class="icon-btn" id="closeStudy" aria-label="Close">&times;</button>
     </header>
     <div class="study-body" id="studyBody">
@@ -646,14 +653,39 @@
         <kbd id="studyRevealHint">Space</kbd>
       </button>
     </div>
+    <div class="study-grades" id="studyGrades" hidden>
+      <button type="button" class="study-grade again" data-study-grade="1">Again <kbd>1</kbd></button>
+      <button type="button" class="study-grade hard" data-study-grade="2">Hard <kbd>2</kbd></button>
+      <button type="button" class="study-grade good" data-study-grade="3">Good <kbd>3</kbd></button>
+      <button type="button" class="study-grade easy" data-study-grade="4">Easy <kbd>4</kbd></button>
+    </div>
+    <div class="study-summary" id="studySummary" hidden></div>
     <footer class="study-foot">
       <button type="button" class="btn tiny" id="studyPrev">&larr; Previous</button>
       <div class="study-track" role="progressbar" aria-label="Study progress"><span id="studyBar"></span></div>
       <span class="study-counter" id="studyCounter">1 / 1</span>
       <button type="button" class="btn tiny" id="studyNext">Next &rarr;</button>
     </footer>
-    <p class="study-keys">Space reveals &middot; &larr; &rarr; move between cards &middot; Esc closes</p>
+    <p class="study-keys">Space reveals &middot; 1&ndash;4 grade &middot; &larr; &rarr; move &middot; Esc closes</p>
   </div>
+</dialog>
+
+<dialog class="modal study-stats-modal" id="studyStatsDialog">
+  <form method="dialog">
+    <header class="modal-head">
+      <div>
+        <p class="study-kicker">Study analytics</p>
+        <h2>Your review history</h2>
+      </div>
+      <button type="button" class="icon-btn" id="closeStudyStats" aria-label="Close">&times;</button>
+    </header>
+    <div class="modal-body">
+      <div class="study-stats-body" id="studyStatsBody"></div>
+    </div>
+    <footer class="modal-foot">
+      <button type="button" class="btn" id="studyStatsClose">Close</button>
+    </footer>
+  </form>
 </dialog>
 
 <dialog class="modal plan-modal" id="planDialog">
@@ -684,7 +716,7 @@
             <input type="time" id="planStart" value="08:00" aria-label="Study start time">
             <span>to</span>
             <input type="time" id="planEnd" value="22:00" aria-label="Study end time">
-            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ23:59">All day</button>
+            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“23:59">All day</button>
           </div>
           <em class="plan-hint" id="planWindowHint"></em>
           <input type="hidden" id="planMinutes" value="840">
@@ -836,33 +868,33 @@
 
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 <noscript><p style="padding:24px">Anki Scribe needs JavaScript enabled.</p></noscript>
-<script src="/static/js/core.js?v=20261127i"></script>
-<script src="/static/js/risk.js?v=20261127i"></script>
-<script src="/static/js/settings.js?v=20261127i"></script>
-<script src="/static/js/drafts.js?v=20261127i"></script>
-<script src="/static/js/deck.js?v=20261127i"></script>
-<script src="/static/js/library.js?v=20261127i"></script>
-<script src="/static/js/documents.js?v=20261127i"></script>
-<script src="/static/js/source.js?v=20261127i"></script>
-<script src="/static/js/answers.js?v=20261127i"></script>
-<script src="/static/js/plan.js?v=20261127i"></script>
-<script src="/static/js/ocr.js?v=20261127i"></script>
-<script src="/static/js/focus.js?v=20261127i"></script>
-<script src="/static/js/leeches.js?v=20261127i"></script>
-<script src="/static/js/cards.js?v=20261127i"></script>
-<script src="/static/js/study.js?v=20261127i"></script>
-<script src="/static/js/auto.js?v=20261127i"></script>
-<script src="/static/js/coverage.js?v=20261127i"></script>
-<script src="/static/js/triage.js?v=20261127i"></script>
-<script src="/static/js/objectives.js?v=20261127i"></script>
-<script src="/static/js/events.js?v=20261127i"></script>
-<script src="/static/js/app.js?v=20261127i"></script>
+<script src="/static/js/core.js?v=20261127k"></script>
+<script src="/static/js/risk.js?v=20261127k"></script>
+<script src="/static/js/settings.js?v=20261127k"></script>
+<script src="/static/js/drafts.js?v=20261127k"></script>
+<script src="/static/js/deck.js?v=20261127k"></script>
+<script src="/static/js/library.js?v=20261127k"></script>
+<script src="/static/js/documents.js?v=20261127k"></script>
+<script src="/static/js/source.js?v=20261127k"></script>
+<script src="/static/js/answers.js?v=20261127k"></script>
+<script src="/static/js/plan.js?v=20261127k"></script>
+<script src="/static/js/ocr.js?v=20261127k"></script>
+<script src="/static/js/focus.js?v=20261127k"></script>
+<script src="/static/js/leeches.js?v=20261127k"></script>
+<script src="/static/js/cards.js?v=20261127k"></script>
+<script src="/static/js/study.js?v=20261127k"></script>
+<script src="/static/js/auto.js?v=20261127k"></script>
+<script src="/static/js/coverage.js?v=20261127k"></script>
+<script src="/static/js/triage.js?v=20261127k"></script>
+<script src="/static/js/objectives.js?v=20261127k"></script>
+<script src="/static/js/events.js?v=20261127k"></script>
+<script src="/static/js/app.js?v=20261127k"></script>
 <script>
   // A stale cached client used to leave the page looking alive with dead
   // buttons. Reload once if app.js is from an older asset version; only show a
   // notice if the version matches but boot still hasn't finished.
   (function () {
-    var version = "20261127i";
+    var version = "20261127k";
     function notice() {
       var el = document.createElement("div");
       el.textContent = "Anki Scribe didn't finish loading. Refresh the page (Ctrl+R).";

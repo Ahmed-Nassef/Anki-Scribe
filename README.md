@@ -1,6 +1,7 @@
 > Tracking repository for the Anki Scribe learning system: card generation,
 > hidden-answer study view, automatic OCR, FSRS-6 planning across files,
-> persistent batch jobs, Anki review history and focused study mode.
+> persistent batch jobs, Anki review history, focus mode and graded study
+> sessions with analytics.
 
 # Anki Scribe
 
@@ -91,6 +92,13 @@ Built for med school: no retyping answers, no writing questions by hand.
   clicking the revealed text hides it again. In study mode a revealed answer
   keeps a faint tint instead of the cover vanishing, so the blank is still
   findable; the page itself uses plain, solid covers in this mode.
+- **Study cards**: active recall, not just text hiding. Open **Study** above the
+  review list or **Quiz** in the study HUD to get one card at a time. Reveal the
+  answer, grade it **Again / Hard / Good / Easy** (`1`–`4`), and the next card
+  appears. Grades update a local due date and interval per card; due cards are
+  shown first, then new ones. The header tracks session time, recall percentage
+  and streak; the end screen shows the grade mix and time, and **Stats** keeps
+  lifetime sessions, days studied, retention and due/new counts.
 - **Study plan**: give it an exam date, the number of study items you need to
   learn and the hours you can study each day, or select several Library files
   and press **Plan selected**. It counts Q&A cards, every distinct cloze
@@ -390,6 +398,16 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   The HUD's fullscreen button uses browser fullscreen. Entering study mode turns
   hidden answers on when the file has cards; leaving restores your previous
   setting.
+- **Study cards:** click **Study** above the review list, or **Quiz** in the
+  study HUD. One card is shown at a time; **Space** reveals the answer, and
+  **1–4** grade it Again, Hard, Good or Easy. The next card advances
+  automatically. The header shows elapsed time, recall percentage and current
+  streak; the final panel shows the grade mix, average time and best streak.
+  Grades update a local interval/due date per card, so due cards sort before new
+  ones on the next session. **Stats** above Review shows lifetime sessions,
+  cards reviewed, days studied, current streak, retention, average time, due
+  now and new cards. This is a local, lightweight schedule for study sessions;
+  the separate Study plan remains the exam-level FSRS view.
 - **Study plan:** click **Study plan** above Review. It asks for the exam date,
   how many study items you still need to learn, your daily study window
   (start and end time, or **All day** for 00:00–23:59), which weekdays you
