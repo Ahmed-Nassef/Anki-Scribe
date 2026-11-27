@@ -33,6 +33,7 @@ from . import (
     objectives,
     picker,
     planner,
+    reviews,
     split,
     study,
 )
@@ -186,6 +187,23 @@ class BatchJobBody(BaseModel):
     mode: str = Field(default="basic", max_length=20)
     style: str = Field(default="balanced", max_length=40)
     strict: bool = False
+
+
+class StudyReviewBody(BaseModel):
+    uid: str = Field(min_length=1, max_length=120)
+    question: str = Field(default="", max_length=500)
+    mode: str = Field(default="basic", max_length=20)
+    rating: int = Field(ge=1, le=4)
+    seconds: float = Field(default=0, ge=0, le=3600)
+
+
+class StudySessionBody(BaseModel):
+    at: float | None = None
+    total: int = Field(default=0, ge=0, le=10_000)
+    correct: int = Field(default=0, ge=0, le=10_000)
+    seconds: float = Field(default=0, ge=0, le=86_400)
+    streak: int = Field(default=0, ge=0, le=10_000)
+    grades: dict[str, int] = Field(default_factory=dict)
 
 
 class DeckBody(BaseModel):
@@ -413,6 +431,9 @@ def create_app(
         path=app.state.store.root.parent / "batch_jobs.json",
     )
     app.state.batch_jobs.resume()
+    app.state.reviews = reviews.ReviewStore(
+        path=app.state.store.root.parent / "study_reviews.json"
+    )
     # Automatic masks are a pure function of the document and its cards, but
     # computing them walks every page. Toggling study mode on and off should
     # feel instant, so the last few results stay in memory.
@@ -1064,6 +1085,30 @@ def create_app(
             return app.state.batch_jobs.cancel(job_id)
         except KeyError as exc:
             raise HTTPException(404, "That batch job no longer exists.") from exc
+
+    # -- study-session history -------------------------------------------
+
+    @app.get("/api/study")
+    def study_snapshot() -> dict:
+        return app.state.reviews.snapshot()
+
+    @app.post("/api/study/review")
+    def study_review(body: StudyReviewBody) -> dict:
+        try:
+            record = app.state.reviews.review(body.model_dump(), body.rating, body.seconds)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"review": record, "stats": app.state.reviews.snapshot()["stats"]}
+
+    @app.post("/api/study/session")
+    def study_session(body: StudySessionBody) -> dict:
+        entry = app.state.reviews.save_session(body.model_dump())
+        return {"session": entry, "stats": app.state.reviews.snapshot()["stats"]}
+
+    @app.delete("/api/study")
+    def clear_study_history() -> dict:
+        app.state.reviews.clear()
+        return {"cleared": True}
 
     # -- generation ------------------------------------------------------
 

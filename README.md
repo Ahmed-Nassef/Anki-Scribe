@@ -95,7 +95,7 @@ Built for med school: no retyping answers, no writing questions by hand.
 - **Study cards**: active recall, not just text hiding. Open **Study** above the
   review list or **Quiz** in the study HUD to get one card at a time. Reveal the
   answer, grade it **Again / Hard / Good / Easy** (`1`–`4`), and the next card
-  appears. Grades update a local due date and interval per card; due cards are
+  appears. Grades update a server-side due date and interval per card; due cards are
   shown first, then new ones. The header tracks session time, recall percentage
   and streak; the end screen shows the grade mix and time, and **Stats** keeps
   lifetime sessions, days studied, retention and due/new counts.
@@ -403,11 +403,13 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   **1–4** grade it Again, Hard, Good or Easy. The next card advances
   automatically. The header shows elapsed time, recall percentage and current
   streak; the final panel shows the grade mix, average time and best streak.
-  Grades update a local interval/due date per card, so due cards sort before new
+  Grades update a server-side interval/due date per card, so due cards sort before new
   ones on the next session. **Stats** above Review shows lifetime sessions,
   cards reviewed, days studied, current streak, retention, average time, due
-  now and new cards. This is a local, lightweight schedule for study sessions;
-  the separate Study plan remains the exam-level FSRS view.
+  now and new cards. The history lives in `study_reviews.json` in the app data
+  folder; the browser keeps a fallback copy. This is a lightweight server-side
+  schedule for study sessions; the separate Study plan remains the exam-level
+  FSRS view.
 - **Study plan:** click **Study plan** above Review. It asks for the exam date,
   how many study items you still need to learn, your daily study window
   (start and end time, or **All day** for 00:00–23:59), which weekdays you
@@ -603,6 +605,7 @@ app/
   fsrs.py        FSRS-6 intervals used by the study plan
   planner.py     day-by-day new/review/time plan from an exam date
   batch_jobs.py  persistent server-side batch generation and resume
+  reviews.py     server-side study grades, due dates and session analytics
   picker.py      native Windows file picker
   ocr.py         Windows OCR + RapidOCR fallback and two-column reading order
   llm.py         DeepSeek client, prompts, JSON/card validation

@@ -2,7 +2,7 @@
 
 /* Application bootstrap: DOM references, startup and periodic checks. */
 
-window.__ANKI_SCRIBE_CLIENT__ = "20261127k";
+window.__ANKI_SCRIBE_CLIENT__ = "20261127l";
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);

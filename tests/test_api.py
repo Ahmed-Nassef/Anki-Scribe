@@ -1069,3 +1069,22 @@ def test_batch_jobs_listing_and_empty_create(client):
     assert listing.json()["jobs"] == []
     empty = client.post("/api/batch-jobs", json={"file_ids": []})
     assert empty.status_code == 400
+
+
+def test_study_review_and_session_endpoints(client):
+    reviewed = client.post(
+        "/api/study/review",
+        json={"uid": "study-card", "question": "What?", "rating": 3, "seconds": 9},
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()["review"]["interval"] == 1
+    snapshot = client.get("/api/study").json()
+    assert "study-card" in snapshot["reviews"]
+    assert snapshot["stats"]["reviews"] == 0
+
+    saved = client.post(
+        "/api/study/session",
+        json={"total": 2, "correct": 2, "seconds": 40, "streak": 2},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["stats"]["retention"] == 1.0

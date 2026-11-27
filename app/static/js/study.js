@@ -7,6 +7,46 @@ const STUDY_REVIEWS_KEY = "ankiScribeCardReviews";
 const STUDY_SESSIONS_KEY = "ankiScribeStudySessions";
 const STUDY_SESSION_LIMIT = 30;
 
+const studyServer = {
+  loaded: false,
+  reviews: {},
+  sessions: [],
+  stats: null,
+};
+
+async function syncStudyFromServer() {
+  try {
+    const data = await api("/api/study");
+    studyServer.loaded = true;
+    const rawReviews =
+      data && typeof data.reviews === "object" ? data.reviews : {};
+    const reviews = {};
+    for (const [key, record] of Object.entries(rawReviews)) {
+      if (!record || typeof record !== "object") continue;
+      reviews[key] = {
+        ...record,
+        due: Number(record.due) < 1e12 ? Number(record.due) * 1000 : record.due,
+        last: Number(record.last) < 1e12 ? Number(record.last) * 1000 : record.last,
+      };
+    }
+    studyServer.reviews = reviews;
+    studyServer.sessions = Array.isArray(data?.sessions)
+      ? data.sessions.map((session) => ({
+          ...session,
+          at: Number(session.at) < 1e12 ? Number(session.at) * 1000 : session.at,
+        }))
+      : [];
+    studyServer.stats = data?.stats || null;
+  } catch {
+    studyServer.loaded = false;
+  }
+  return studyServer.loaded;
+}
+
+function currentStudyReviews() {
+  return studyServer.loaded ? studyServer.reviews : loadStudyReviews();
+}
+
 const studyState = {
   items: [],
   index: 0,
@@ -66,7 +106,7 @@ function saveStudySessions(sessions) {
 }
 
 function studyItemGrade(item, rating, seconds) {
-  const reviews = loadStudyReviews();
+  const reviews = currentStudyReviews();
   const key = studyCardKey(item.card);
   if (!key) return reviews;
   const now = Date.now();
@@ -105,6 +145,30 @@ function studyItemGrade(item, rating, seconds) {
     seconds: Math.max(0, Math.round(seconds)),
   };
   saveStudyReviews(reviews);
+  if (studyServer.loaded) {
+    api("/api/study/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uid: key,
+        question: String(item.card.question || item.card.text || "").slice(0, 500),
+        mode: item.card.mode || "basic",
+        rating,
+        seconds: Math.max(0, Math.round(seconds)),
+      }),
+    })
+      .then((data) => {
+        if (data && data.review) {
+          const review = { ...data.review };
+          review.due = Number(review.due) < 1e12 ? Number(review.due) * 1000 : review.due;
+          review.last = Number(review.last) < 1e12 ? Number(review.last) * 1000 : review.last;
+          studyServer.reviews[key] = review;
+        }
+      })
+      .catch(() => {
+        // The local record above is the fallback.
+      });
+  }
   return reviews;
 }
 
@@ -364,7 +428,7 @@ function studyCardKey(card) {
 function studyItems() {
   const items = [];
   for (const [, group] of studyGroups()) items.push(...group);
-  const reviews = loadStudyReviews();
+  const reviews = currentStudyReviews();
   const now = Date.now();
   const rank = (item) => {
     const record = reviews[studyCardKey(item.card)];
@@ -381,7 +445,8 @@ function studyItems() {
   return items;
 }
 
-function openStudy() {
+async function openStudy() {
+  await syncStudyFromServer();
   const items = studyItems();
   if (!items.length) {
     toast("Tick at least one card first.");
@@ -474,6 +539,24 @@ function saveStudySession() {
     },
   });
   saveStudySessions(sessions);
+  if (studyServer.loaded) {
+    api("/api/study/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sessions[sessions.length - 1]),
+    })
+      .then((data) => {
+        if (data && data.session) {
+          const session = { ...data.session };
+          session.at =
+            Number(session.at) < 1e12 ? Number(session.at) * 1000 : session.at;
+          studyServer.sessions = [...studyServer.sessions, session].slice(-200);
+        }
+      })
+      .catch(() => {
+        // Local history remains available.
+      });
+  }
 }
 
 function savePartialStudySession() {
@@ -701,11 +784,12 @@ function studyStreakDays(sessions) {
   return streak;
 }
 
-function openStudyStats() {
+async function openStudyStats() {
   if (!els.studyStatsDialog) return;
   if (els.studyDialog?.open) closeStudy();
-  const sessions = loadStudySessions();
-  const reviews = loadStudyReviews();
+  await syncStudyFromServer();
+  const sessions = studyServer.loaded ? studyServer.sessions : loadStudySessions();
+  const reviews = currentStudyReviews();
   const total = sessions.reduce((sum, session) => sum + (Number(session.total) || 0), 0);
   const correct = sessions.reduce(
     (sum, session) => sum + (Number(session.correct) || 0),
