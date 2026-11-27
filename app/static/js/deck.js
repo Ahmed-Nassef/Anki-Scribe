@@ -633,6 +633,35 @@ function sendBlockedAnyway() {
   sendPushGroups(pending.groups, { allowBlocked: true });
 }
 
+async function pushBlockedAnyway() {
+  if (state.pushing) return;
+  const selected = state.cards.filter((card) => card.selected);
+  const blocked = selected.filter((card) => blockingFaults(card).length);
+  if (!selected.length) {
+    toast("Select at least one card.", "info");
+    return;
+  }
+  if (!blocked.length) {
+    toast("No selected card is blocked. Use Send to Anki normally.", "info", 4500);
+    return;
+  }
+  const baseDeck = els.deckInput.value.trim();
+  if (!baseDeck) {
+    toast("Pick a parent deck first.", "error");
+    els.deckInput.focus();
+    return;
+  }
+  const proceed = window.confirm(
+    `${blocked.length} selected card${blocked.length === 1 ? " has" : "s have"} a blocking quality fault.\n\n` +
+      "Push them anyway? Anki will accept them, but a blank or answer-leaking note may result."
+  );
+  if (!proceed) return;
+  const groups = buildPushGroups(selected, baseDeck);
+  closePushDialog();
+  state.pendingPush = null;
+  await sendPushGroups(groups, { allowBlocked: true });
+}
+
 function openPushDialog(preflight) {
   renderPushDialog(preflight);
   if (!els.pushDialog.open) els.pushDialog.showModal();

@@ -189,6 +189,25 @@ function bindEvents() {
   els.studyReveal.addEventListener("click", toggleStudyAnswer);
   els.studyPrev.addEventListener("click", () => moveStudy(-1));
   els.studyNext.addEventListener("click", () => moveStudy(1));
+  for (const button of document.querySelectorAll("[data-study-grade]")) {
+    button.addEventListener("click", () => {
+      gradeStudy(Number(button.dataset.studyGrade));
+    });
+  }
+  if (els.studyStatsBtn) {
+    els.studyStatsBtn.addEventListener("click", openStudyStats);
+  }
+  if (els.closeStudyStats) {
+    els.closeStudyStats.addEventListener("click", closeStudyStats);
+  }
+  if (els.studyStatsClose) {
+    els.studyStatsClose.addEventListener("click", closeStudyStats);
+  }
+  if (els.studyStatsDialog) {
+    els.studyStatsDialog.addEventListener("click", (event) => {
+      if (event.target === els.studyStatsDialog) closeStudyStats();
+    });
+  }
   els.studyAnswer.addEventListener("click", () => {
     const selection = window.getSelection();
     if (selection && String(selection).length) return;
@@ -201,6 +220,8 @@ function bindEvents() {
 
   els.triageBtn.addEventListener("click", () => openTriage());
   els.riskBtn.addEventListener("click", () => openTriage({ onlyRisky: true }));
+  if (els.blockedBtn) els.blockedBtn.addEventListener("click", toggleBlockedFilter);
+  if (els.pushBlockedBtn) els.pushBlockedBtn.addEventListener("click", pushBlockedAnyway);
   els.closeTriage.addEventListener("click", closeTriage);
   els.triageReveal.addEventListener("click", toggleTriageAnswer);
   els.triageAccept.addEventListener("click", () => triageDecide(true));

@@ -10,6 +10,7 @@ from app import batch_jobs
 from app.config import Settings
 from app.drafts import DraftStore
 from app.library import Library
+from app.sent import SentStore
 from app.store import Store
 
 
@@ -47,11 +48,13 @@ def test_batch_job_generates_cards_and_persists(tmp_path, monkeypatch):
     library = Library(tmp_path / "library.json")
     file, _ = library.add_file(str(path))
     drafts = DraftStore(tmp_path / "drafts.json")
+    sent = SentStore(tmp_path / "sent.json")
     store = Store(tmp_path / "documents")
     jobs = batch_jobs.BatchJobStore(
         store,
         library,
         drafts,
+        sent,
         Settings(api_key="sk-test"),
         path=tmp_path / "batch_jobs.json",
     )
@@ -74,6 +77,7 @@ def test_batch_job_generates_cards_and_persists(tmp_path, monkeypatch):
         store,
         library,
         drafts,
+        sent,
         Settings(api_key="sk-test"),
         path=tmp_path / "batch_jobs.json",
     )
@@ -85,11 +89,13 @@ def test_batch_job_skips_duplicate_cards(tmp_path, monkeypatch):
     library = Library(tmp_path / "library.json")
     file, _ = library.add_file(str(path))
     drafts = DraftStore(tmp_path / "drafts.json")
+    sent = SentStore(tmp_path / "sent.json")
     store = Store(tmp_path / "documents")
     jobs = batch_jobs.BatchJobStore(
         store,
         library,
         drafts,
+        sent,
         Settings(api_key="sk-test"),
         path=tmp_path / "batch_jobs.json",
     )
@@ -107,11 +113,13 @@ def test_batch_job_survives_as_running_and_resumes(tmp_path, monkeypatch):
     library = Library(tmp_path / "library.json")
     file, _ = library.add_file(str(path))
     drafts = DraftStore(tmp_path / "drafts.json")
+    sent = SentStore(tmp_path / "sent.json")
     store = Store(tmp_path / "documents")
     jobs = batch_jobs.BatchJobStore(
         store,
         library,
         drafts,
+        sent,
         Settings(api_key="sk-test"),
         path=tmp_path / "batch_jobs.json",
     )
@@ -125,6 +133,7 @@ def test_batch_job_survives_as_running_and_resumes(tmp_path, monkeypatch):
         store,
         library,
         drafts,
+        sent,
         Settings(api_key="sk-test"),
         path=tmp_path / "batch_jobs.json",
     )
@@ -135,3 +144,44 @@ def test_batch_job_survives_as_running_and_resumes(tmp_path, monkeypatch):
         time.sleep(0.02)
         status = resumed.status(job["id"])
     assert status["status"] == "completed"
+
+
+def test_batch_job_can_send_fresh_cards_to_anki(tmp_path, monkeypatch):
+    path = make_pdf(tmp_path)
+    library = Library(tmp_path / "library.json")
+    file, _ = library.add_file(str(path))
+    drafts = DraftStore(tmp_path / "drafts.json")
+    sent = SentStore(tmp_path / "sent.json")
+    store = Store(tmp_path / "documents")
+    jobs = batch_jobs.BatchJobStore(
+        store,
+        library,
+        drafts,
+        sent,
+        Settings(api_key="sk-test"),
+        path=tmp_path / "batch_jobs.json",
+    )
+    monkeypatch.setattr(batch_jobs.llm, "generate_cards", fake_generate)
+
+    def fake_push(settings, deck, cards, tags="", media=None):
+        return {
+            "deck": deck,
+            "total": len(cards),
+            "created": len(cards),
+            "duplicates": 0,
+            "noteIds": [701],
+        }
+
+    monkeypatch.setattr(batch_jobs.anki, "push_cards", fake_push)
+    job = jobs.create(
+        [file.id],
+        send_to_anki=True,
+        deck="Anki Scribe",
+        start=False,
+    )
+    result = jobs.run_sync(job["id"])
+    assert result["sent"] == 1
+    assert result["cards"] == 1
+    assert sent.count(file.path) == 1
+    assert drafts.get(file.path)["cards"] == []
+    assert result["results"][0]["sent"] == 1

@@ -303,14 +303,19 @@ function renderCards() {
   builtSlots.clear();
   visibleSlots.clear();
 
-  if (!state.cards.length) {
+  const visibleCards = state.blockedOnly
+    ? state.cards.filter((card) => blockingFaults(card).length)
+    : state.cards;
+  if (!state.cards.length || !visibleCards.length) {
     const empty = document.createElement("div");
     empty.className = "cards-empty";
-    empty.textContent = "Generated cards land here. Edit anything before it goes to Anki.";
+    empty.textContent = state.blockedOnly
+      ? "No blocked cards left in this file."
+      : "Generated cards land here. Edit anything before it goes to Anki.";
     els.cardsList.appendChild(empty);
   } else {
     const fragment = document.createDocumentFragment();
-    state.cards.forEach((card) => {
+    visibleCards.forEach((card) => {
       const slot = document.createElement("div");
       slot.className = "card-slot";
       slot.dataset.slotUid = card.uid;
@@ -497,6 +502,47 @@ async function uploadCardImage(file) {
   }
 }
 
+function toggleBlockedFilter() {
+  const blocked = state.cards.filter((card) => blockingFaults(card).length);
+  if (!blocked.length) {
+    state.blockedOnly = false;
+    renderCards();
+    toast("No blocked cards. The quality gate is clear.", "success", 3500);
+    return;
+  }
+  state.blockedOnly = !state.blockedOnly;
+  renderCards();
+  if (state.blockedOnly) {
+    focusCard(blocked[0].uid);
+    toast(
+      `Showing ${blocked.length} blocked card${blocked.length === 1 ? "" : "s"} only. Fix each red card, then click Blocked again to show all.`,
+      "info",
+      8000
+    );
+  }
+}
+
+let blockedCursor = -1;
+
+function focusNextBlocked() {
+  const blocked = state.cards.filter((card) => blockingFaults(card).length);
+  if (!blocked.length) {
+    toast("No blocked cards. The quality gate is clear.", "success", 3500);
+    return;
+  }
+  blockedCursor = (blockedCursor + 1) % blocked.length;
+  const card = blocked[blockedCursor];
+  focusCard(card.uid);
+  const labels = blockingFaults(card)
+    .map((fault) => fault.label)
+    .join(" \u00b7 ");
+  toast(
+    `Blocked card ${blockedCursor + 1} of ${blocked.length}: ${labels}. Edit it here, then send again.`,
+    "info",
+    7500
+  );
+}
+
 /* Bring one card into view in the review panel and flash it, so a click on the
    highlighted source text lands somewhere unmistakable. The card is built on
    demand: the list may only hold a slot for it. */
@@ -553,9 +599,50 @@ function cardTypeOf(card) {
   return Object.prototype.hasOwnProperty.call(TYPE_LABELS, value) ? value : "definition";
 }
 
+function fallbackCardFaults(card) {
+  const faults = [];
+  const mode = card && card.mode === "cloze" ? "cloze" : "basic";
+  const question = String(card?.question || "").trim();
+  const answer = String(card?.answer || "").trim();
+  const text = String(card?.text || "").trim();
+  if (mode === "cloze") {
+    if (!text) {
+      faults.push({ code: "empty_side", label: "a required side is empty", severity: "blocking" });
+    }
+    if (text.match(/\{\{c\d+::/g)) {
+      const deletions = [...text.matchAll(/\{\{c\d+::([\s\S]*?)(?:::[^}]*)?\}\}/g)].map(
+        (match) => match[1]
+      );
+      if (deletions.length > 3) {
+        faults.push({ code: "cloze_overloaded", label: "too many deletions, or one deletion too long", severity: "blocking" });
+      } else if (
+        deletions.some((deletion) => deletion.trim().split(/\s+/).filter(Boolean).length > 8)
+      ) {
+        faults.push({ code: "cloze_overloaded", label: "too many deletions, or one deletion too long", severity: "blocking" });
+      }
+    }
+    return faults;
+  }
+  if (!question) {
+    faults.push({ code: "empty_side", label: "a required side is empty", severity: "blocking" });
+  }
+  if (!answer && !card?.image) {
+    faults.push({ code: "empty_side", label: "a required side is empty", severity: "blocking" });
+  }
+  if (question && /^(explain|describe|discuss|list|outline|summari[sz]e|compare and contrast)\b/i.test(question)) {
+    faults.push({ code: "open_ended", label: "it asks for an essay, not a recallable fact", severity: "blocking" });
+  }
+  if (question && answer && /^(yes|no|true|false)\b/i.test(answer)) {
+    faults.push({ code: "answer_leak", label: "the answer is already in the question", severity: "blocking" });
+  }
+  return faults;
+}
+
 function cardFaults(card) {
-  const faults = card && Array.isArray(card.faults) ? card.faults : [];
-  return faults.filter((fault) => fault && fault.code);
+  if (Array.isArray(card?.faults)) {
+    return card.faults.filter((fault) => fault && fault.code);
+  }
+  return fallbackCardFaults(card);
 }
 
 function blockingFaults(card) {
@@ -577,7 +664,8 @@ function typeMixSummary(cards) {
 
 function buildCard(card, risk) {
   const article = document.createElement("article");
-  article.className = `card${card.selected ? "" : " is-unselected"}`;
+  const blocked = blockingFaults(card).length > 0;
+  article.className = `card${card.selected ? "" : " is-unselected"}${blocked ? " is-blocked" : ""}`;
   article.dataset.uid = card.uid;
 
   const sourceMeta =
@@ -775,13 +863,35 @@ function updateCardsMeta() {
       `${total} draft${total === 1 ? "" : "s"} \u00b7 ${selected} selected` +
       (unverified ? ` \u00b7 ${unverified} to check` : "") +
       (blocked ? ` \u00b7 ${blocked} blocked` : "") +
+      (state.blockedOnly ? " \u00b7 showing blocked" : "") +
       (sent ? ` \u00b7 ${sent} sent` : "") +
       (mix ? ` \u00b7 ${mix}` : "");
   }
   updateRiskButton(total);
+  updateBlockedButton();
   updateSheetActions();
   updateUndoButton();
   refreshSentHistoryButton();
+}
+
+function updateBlockedButton() {
+  if (!els.blockedBtn) return;
+  const count = state.cards.filter((card) => blockingFaults(card).length).length;
+  if (count === 0 && state.blockedOnly) {
+    state.blockedOnly = false;
+    renderCards();
+    return;
+  }
+  els.blockedBtn.hidden = count === 0;
+  els.blockedBtn.textContent = state.blockedOnly
+    ? `Show all (${count})`
+    : `Blocked ${count}`;
+  els.blockedBtn.classList.toggle("is-active", state.blockedOnly);
+  els.blockedBtn.setAttribute("aria-pressed", state.blockedOnly ? "true" : "false");
+  els.blockedBtn.title = state.blockedOnly
+    ? "Show the full review list again"
+    : `Show only the ${count} card${count === 1 ? "" : "s"} the quality gate would block`;
+  if (els.pushBlockedBtn) els.pushBlockedBtn.hidden = count === 0;
 }
 
 function updateRiskButton(total) {

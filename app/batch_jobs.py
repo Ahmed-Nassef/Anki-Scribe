@@ -22,10 +22,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from . import llm, storage
+from . import anki, cards_quality, llm, storage
 from .config import data_dir
 from .drafts import DraftStore
 from .library import Library, LibraryError
+from .sent import SentStore
 from .store import Store
 
 MAX_JOBS = 30
@@ -47,12 +48,14 @@ class BatchJobStore:
         store: Store,
         library: Library,
         drafts: DraftStore,
+        sent: SentStore,
         settings: Any,
         path: Path | None = None,
     ) -> None:
         self.store = store
         self.library = library
         self.drafts = drafts
+        self.sent = sent
         self.settings = settings
         self.path = path or (data_dir() / "batch_jobs.json")
         self._lock = threading.RLock()
@@ -92,6 +95,10 @@ class BatchJobStore:
         mode: str = "basic",
         style: str = "balanced",
         strict: bool = False,
+        send_to_anki: bool = False,
+        deck: str = "",
+        deck_mode: str = "parent",
+        tags: str = "",
         start: bool = True,
     ) -> dict:
         files: list[dict] = []
@@ -120,13 +127,24 @@ class BatchJobStore:
             "updatedAt": now,
             "fileIds": [file["id"] for file in files],
             "files": files,
-            "options": {"mode": mode, "style": style, "strict": bool(strict)},
+            "options": {
+                "mode": mode,
+                "style": style,
+                "strict": bool(strict),
+                "send_to_anki": bool(send_to_anki),
+                "deck": deck[:300],
+                "deck_mode": "exact" if deck_mode == "exact" else "parent",
+                "tags": tags[:500],
+            },
             "nextFile": 0,
             "currentFile": None,
             "currentIndex": 0,
             "totalChunks": 0,
             "doneChunks": 0,
             "cards": 0,
+            "sent": 0,
+            "duplicates": 0,
+            "blocked": 0,
             "results": [],
             "error": "",
             "cancelled": False,
@@ -154,6 +172,9 @@ class BatchJobStore:
                 "totalChunks": int(job.get("totalChunks", 0)),
                 "doneChunks": int(job.get("doneChunks", 0)),
                 "cards": int(job.get("cards", 0)),
+                "sent": int(job.get("sent", 0)),
+                "duplicates": int(job.get("duplicates", 0)),
+                "blocked": int(job.get("blocked", 0)),
                 "results": list(job.get("results", [])),
                 "error": str(job.get("error", "")),
                 "createdAt": job.get("createdAt", 0),
@@ -291,9 +312,16 @@ class BatchJobStore:
                 job["updatedAt"] = time.time()
                 self._save()
             try:
-                added = self._process_file(job, file, mode)
+                result = self._process_file(job, file, mode)
             except Exception as exc:
-                self._record_file(job, index, file.id, file.name, 0, str(exc))
+                self._record_file(
+                    job,
+                    index,
+                    file.id,
+                    file.name,
+                    {"cards": 0, "sent": 0, "duplicates": 0, "blocked": 0},
+                    str(exc),
+                )
                 if _error_is_fatal(str(exc)):
                     with self._lock:
                         job["status"] = "error"
@@ -302,7 +330,7 @@ class BatchJobStore:
                         self._save()
                     return
                 continue
-            self._record_file(job, index, file.id, file.name, added, "")
+            self._record_file(job, index, file.id, file.name, result, "")
         with self._lock:
             if job.get("cancelled"):
                 job["status"] = "cancelled"
@@ -313,7 +341,13 @@ class BatchJobStore:
             self._save()
 
     def _record_file(
-        self, job: dict, index: int, file_id: str, name: str, cards: int, error: str
+        self,
+        job: dict,
+        index: int,
+        file_id: str,
+        name: str,
+        result: dict,
+        error: str,
     ) -> None:
         with self._lock:
             results = job.setdefault("results", [])
@@ -321,13 +355,24 @@ class BatchJobStore:
                 {
                     "fileId": file_id,
                     "name": name,
-                    "cards": cards,
+                    "cards": int(result.get("cards") or 0),
+                    "sent": int(result.get("sent") or 0),
+                    "duplicates": int(result.get("duplicates") or 0),
+                    "blocked": int(result.get("blocked") or 0),
+                    "warning": str(result.get("warning") or ""),
                     "ok": not error,
                     "error": error,
                 }
             )
             job["nextFile"] = index + 1
-            job["cards"] = int(job.get("cards", 0)) + cards
+            job["cards"] = int(job.get("cards", 0)) + int(result.get("cards") or 0)
+            job["sent"] = int(job.get("sent", 0)) + int(result.get("sent") or 0)
+            job["duplicates"] = int(job.get("duplicates", 0)) + int(
+                result.get("duplicates") or 0
+            )
+            job["blocked"] = int(job.get("blocked", 0)) + int(
+                result.get("blocked") or 0
+            )
             job["currentFile"] = None
             job["doneChunks"] = 0
             job["totalChunks"] = 0
@@ -350,7 +395,7 @@ class BatchJobStore:
             return self.store.create_transcript_path(path, file.name)
         return self.store.create_image_path(path, file.name)
 
-    def _process_file(self, job: dict, file, mode: str) -> int:
+    def _process_file(self, job: dict, file, mode: str) -> dict:
         doc = self._open_file(file)
         suffix = Path(file.path).suffix.lower()
         max_chars = 6000 if suffix in {".srt", ".vtt", ".txt", ".md"} else 3500
@@ -368,6 +413,7 @@ class BatchJobStore:
             existing = []
         seen = {_card_key(card) for card in existing if isinstance(card, dict)}
         added = 0
+        all_fresh: list[dict] = []
         for position, chunk in enumerate(chunks, start=1):
             with self._lock:
                 if job.get("cancelled"):
@@ -455,8 +501,102 @@ class BatchJobStore:
                     )
                 existing = merged
                 self.drafts.put(file.path, file.name, existing)
+                all_fresh.extend(fresh)
             with self._lock:
                 job["doneChunks"] = position
                 job["updatedAt"] = time.time()
                 self._save()
-        return added
+        return self._push_fresh(
+            file,
+            all_fresh,
+            job.get("options") or {},
+            {"cards": added, "sent": 0, "duplicates": 0, "blocked": 0},
+        )
+
+    def _push_fresh(
+        self, file, fresh: list[dict], options: dict, result: dict
+    ) -> dict:
+        """Push the cards generated for one file, if the batch asked for it."""
+        if not options.get("send_to_anki") or not fresh:
+            return result
+        report = cards_quality.blocked_cards(fresh)
+        result["blocked"] = int(report.get("count") or 0)
+        blocked_uids = {
+            str(card.get("uid") or "")
+            for card, faults in zip(
+                fresh, cards_quality.evaluate_batch(fresh)
+            )
+            if cards_quality.blocking_faults(faults)
+        }
+        eligible = [
+            card
+            for card in fresh
+            if str(card.get("uid") or "") not in blocked_uids
+        ]
+        if not eligible:
+            result["warning"] = (
+                f"{result['blocked']} generated card"
+                f"{'' if result['blocked'] == 1 else 's'} needed fixing before Anki."
+            )
+            return result
+        base = (
+            str(options.get("deck") or "").strip()
+            or str(self.settings.default_deck or "").strip()
+            or "Anki Scribe"
+        )
+        deck = (
+            base
+            if options.get("deck_mode") == "exact"
+            else f"{base}::{Path(file.name).stem}"
+        )
+        tags = str(options.get("tags") or "")
+        try:
+            pushed = anki.push_cards(
+                self.settings,
+                deck,
+                eligible,
+                tags,
+            )
+        except anki.AnkiError as exc:
+            result["warning"] = f"Cards stayed in drafts: {exc}"
+            return result
+        note_ids = list(pushed.get("noteIds") or [])
+        entries: list[dict] = []
+        created_uids: set[str] = set()
+        for card, note_id in zip(eligible, note_ids):
+            if not note_id:
+                continue
+            uid = str(card.get("uid") or "")
+            created_uids.add(uid)
+            entries.append(
+                {
+                    "id": uid,
+                    "noteId": int(note_id),
+                    "deck": deck,
+                    "mode": str(card.get("mode") or "basic"),
+                    "type": cards_quality.card_type(card),
+                    "question": str(card.get("question") or card.get("text") or ""),
+                    "answer": str(card.get("answer") or ""),
+                    "tags": card.get("tags") or [],
+                    "source": card.get("source") or {},
+                }
+            )
+        if entries:
+            try:
+                self.sent.append(file.path, file.name, entries)
+            except OSError as exc:
+                result["warning"] = f"Sent cards, but the ledger failed: {exc}"
+            existing = self.drafts.get(file.path).get("cards", [])
+            if isinstance(existing, list):
+                self.drafts.put(
+                    file.path,
+                    file.name,
+                    [
+                        card
+                        for card in existing
+                        if str(card.get("uid") or "") not in created_uids
+                    ],
+                )
+        result["sent"] = int(pushed.get("created") or 0)
+        result["duplicates"] = int(pushed.get("duplicates") or 0)
+        return result

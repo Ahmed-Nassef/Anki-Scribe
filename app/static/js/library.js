@@ -783,6 +783,13 @@ async function runServerBatch(selected) {
       mode: state.mode,
       style: state.style,
       strict: Boolean(state.strict),
+      send_to_anki: Boolean(els.libraryAutoSend && els.libraryAutoSend.checked),
+      deck:
+        (els.deckInput && els.deckInput.value.trim()) ||
+        state.settings.default_deck ||
+        "Anki Scribe",
+      deck_mode: state.deckMode || "parent",
+      tags: (els.extraTags && els.extraTags.value.trim()) || "",
     }),
   });
   await pollServerBatch(job, selected);
@@ -832,6 +839,9 @@ async function finishServerBatch(job) {
   state.auto.batch = null;
   const results = Array.isArray(job.results) ? job.results : [];
   const cards = Number(job.cards) || 0;
+  const sent = Number(job.sent) || 0;
+  const duplicates = Number(job.duplicates) || 0;
+  const blocked = Number(job.blocked) || 0;
   const failed = results.filter((entry) => !entry.ok);
   const completed = results.filter((entry) => entry.ok).length;
   const stopped = job.status === "cancelled" || state.batch.cancelled;
@@ -842,20 +852,25 @@ async function finishServerBatch(job) {
       : jobError
         ? "Batch stopped on an error"
         : `Batch finished \u00b7 ${cards} card${cards === 1 ? "" : "s"}`,
-    jobError ||
+    (sent ? `${sent} sent to Anki \u00b7 ` : "") +
+      (duplicates ? `${duplicates} duplicate${duplicates === 1 ? "" : "s"} \u00b7 ` : "") +
+      (blocked ? `${blocked} blocked \u00b7 ` : "") +
       `${completed} of ${state.batch.total} file${state.batch.total === 1 ? "" : "s"} finished` +
-        (failed.length ? ` \u00b7 ${failed.length} failed` : "") +
-        ".",
-    stopped || failed.length || jobError ? "info" : "success"
+      (failed.length ? ` \u00b7 ${failed.length} failed` : "") +
+      ".",
+    stopped || failed.length || jobError || blocked ? "info" : "success"
   );
   toast(
     jobError
       ? `Batch stopped: ${jobError}`
       : stopped
-        ? `Batch stopped after ${cards} cards.`
-        : `Generated ${cards} card${cards === 1 ? "" : "s"} from ${completed} file${completed === 1 ? "" : "s"}.` +
-            (failed.length ? ` ${failed.length} failed.` : ""),
-    stopped || failed.length || jobError ? "info" : "success",
+        ? `Batch stopped after ${cards} cards; ${sent} sent to Anki.`
+        : `Generated ${cards} card${cards === 1 ? "" : "s"} from ${completed} file${completed === 1 ? "" : "s"}` +
+            (sent ? `; ${sent} sent to Anki` : "") +
+            (duplicates ? `; ${duplicates} duplicate${duplicates === 1 ? "" : "s"}` : "") +
+            (blocked ? `; ${blocked} blocked in drafts` : "") +
+            ".",
+    stopped || failed.length || jobError || blocked ? "info" : "success",
     9000
   );
   state.librarySelection.clear();
@@ -924,7 +939,10 @@ async function runLibraryBatch() {
         .map((file) => `\u2022 ${file.name}`)
         .join("\n") +
       (selected.length > 8 ? `\n\u2022 \u2026 ${selected.length - 8} more` : "") +
-      "\n\nAuto reads every page and table, section by section. This uses DeepSeek credit and can take a while."
+      "\n\nAuto reads every page and table, section by section. This uses DeepSeek credit and can take a while." +
+      (els.libraryAutoSend && els.libraryAutoSend.checked
+        ? "\n\nGenerated cards will be sent to Anki automatically as each file finishes."
+        : "\n\nCards will stay as drafts for review before sending.")
   );
   if (!proceed) return;
 

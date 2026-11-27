@@ -3569,3 +3569,40 @@ body.is-studying .answer-mask.is-revealed {
   color: var(--muted);
 }
 .study-recent-row span:last-child { font-variant-numeric: tabular-nums; }
+
+.card.is-blocked {
+  border-color: #c45a50;
+  border-left: 4px solid #b23b32;
+  background: #fff8f6;
+  box-shadow: 0 0 0 2px rgba(178, 59, 50, 0.1), var(--shadow-sm);
+}
+.card.is-blocked .badge.fault.blocking {
+  background: #b23b32;
+  border-color: #b23b32;
+  color: #fff;
+  font-weight: 800;
+}
+
+.text-btn.danger.is-active {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--danger-soft);
+  text-decoration: none;
+}
+
+.library-auto-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.library-auto-send input {
+  accent-color: var(--accent);
+  width: 13px;
+  height: 13px;
+}

@@ -2,7 +2,7 @@
 
 /* Application bootstrap: DOM references, startup and periodic checks. */
 
-window.__ANKI_SCRIBE_CLIENT__ = "20261127l";
+window.__ANKI_SCRIBE_CLIENT__ = "20261127o";
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
@@ -53,7 +53,7 @@ async function init() {
     "studyDialog", "studyBody", "studyTitle", "studySection", "studyCounter",
     "studyQuestion", "studyAnswer", "studyAnswerText", "studyDetail",
     "studyReveal", "studyRevealLabel", "studyRevealHint", "studyPrev",
-    "studyNext", "studyBar", "closeStudy", "studyStatsBtn", "studyLiveTime",
+    "studyNext", "studyBar", "closeStudy", "blockedBtn", "pushBlockedBtn", "studyStatsBtn", "studyLiveTime",
     "studyLiveAccuracy", "studyLiveStreak", "studyGrades", "studySummary",
     "studyStatsDialog", "closeStudyStats", "studyStatsBody", "studyStatsClose",
     "studyQuizBtn",
@@ -65,7 +65,7 @@ async function init() {
     "libraryBtn", "libraryCount", "emptyLibraryBtn", "libraryDialog", "libraryForm",
     "closeLibrary", "libraryClose", "libraryAddBtn", "libraryNewGroupBtn",
     "librarySearch", "libraryGroups", "libraryPathInput", "libraryPathGroup",
-    "libraryPathAdd", "librarySelectAllBtn", "libraryBatchBtn", "libraryPlanBtn",
+    "libraryPathAdd", "librarySelectAllBtn", "libraryBatchBtn", "libraryAutoSend", "libraryPlanBtn",
     "autoDocBtn", "autoPanel", "autoStatus", "autoBar", "autoDetail", "autoCancel",
     "autoSpinner", "autoBadge", "splitDocBtn", "splitLabel", "splitBadge", "imageFileInput",
     "settingsDialog", "settingsForm", "closeSettings", "cancelSettings",

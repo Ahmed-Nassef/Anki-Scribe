@@ -187,6 +187,10 @@ class BatchJobBody(BaseModel):
     mode: str = Field(default="basic", max_length=20)
     style: str = Field(default="balanced", max_length=40)
     strict: bool = False
+    send_to_anki: bool = False
+    deck: str = Field(default="", max_length=300)
+    deck_mode: str = Field(default="parent", max_length=20)
+    tags: str = Field(default="", max_length=500)
 
 
 class StudyReviewBody(BaseModel):
@@ -427,6 +431,7 @@ def create_app(
         app.state.store,
         app.state.library,
         app.state.drafts,
+        app.state.sent,
         app.state.settings,
         path=app.state.store.root.parent / "batch_jobs.json",
     )
@@ -1061,6 +1066,10 @@ def create_app(
                 mode=body.mode,
                 style=body.style,
                 strict=body.strict,
+                send_to_anki=body.send_to_anki,
+                deck=body.deck,
+                deck_mode=body.deck_mode,
+                tags=body.tags,
             )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc

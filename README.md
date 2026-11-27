@@ -239,6 +239,9 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   file's drafts, and writes progress to `batch_jobs.json`. You can close the tab
   or restart the app; the job resumes on the next start. The progress panel says
   which file is running and the final summary counts cards and failures.
+  **Send to Anki** is ticked by default: as each file finishes, its fresh cards
+  are pushed to the current deck, duplicates are reported, and blocked cards
+  stay in that file's drafts for fixing. Untick it to review everything first.
   **Select all** picks every available file; missing files are disabled. Stop
   cancels the current job, and cards already generated are kept. This is the
   expensive route: one DeepSeek run per file.
@@ -388,6 +391,13 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   and headings are left alone, because they orient you rather than test you.
   Untick a card and its answer stays visible. The toggle is remembered in this
   browser; manual hides are saved per file.
+- **Blocked cards:** the quality gate refuses a push when a card has an empty
+  side, an open-ended question, an answer leaked into the question, or more than
+  three/too-long cloze deletions. The Review header shows **Blocked N**. Click it
+  to filter the list to those cards; they get a red left border and a red
+  `blocked` badge, with the reason in the toast/badge. Fix the card and the red
+  state clears. **Push anyway** is available for an explicit bypass, and batch
+  auto-send leaves blocked cards in drafts instead of pushing them.
 - **Study mode:** click **Study mode** above the pages (or press <kbd>F</kbd>).
   The page gets the whole window and the generation UI disappears. A small
   HUD shows the file, page and hidden-answer count. Use <kbd>Space</kbd> to
