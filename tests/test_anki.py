@@ -264,3 +264,64 @@ def test_create_deck_rejects_empty_name(monkeypatch):
     monkeypatch.setattr(anki, "_invoke", lambda *args, **kwargs: 1)
     with pytest.raises(anki.AnkiError):
         anki.create_deck(Settings(), "   ")
+
+
+def test_read_review_history_joins_notes_and_cards(monkeypatch):
+    def fake(settings, action, **params):
+        if action == "notesInfo":
+            return [
+                {
+                    "noteId": 10,
+                    "modelName": "Anki Scribe Basic",
+                    "cards": [100],
+                    "fields": {
+                        "Front": {"value": "What is <b>PE</b>?"},
+                        "Back": {"value": "Private equity"},
+                    },
+                },
+                {
+                    "noteId": 11,
+                    "modelName": "Anki Scribe Basic",
+                    "cards": [101],
+                    "fields": {
+                        "Front": {"value": "Hard card"},
+                        "Back": {"value": "Answer"},
+                    },
+                },
+            ]
+        if action == "cardsInfo":
+            return [
+                {
+                    "cardId": 100,
+                    "deckName": "Anki Scribe",
+                    "reps": 8,
+                    "lapses": 2,
+                    "type": 2,
+                    "interval": 12,
+                    "due": 123,
+                },
+                {
+                    "cardId": 101,
+                    "deckName": "Anki Scribe",
+                    "reps": 9,
+                    "lapses": 4,
+                    "type": 2,
+                    "interval": 2,
+                    "due": 124,
+                },
+            ]
+        raise AssertionError(action)
+
+    monkeypatch.setattr(anki, "_invoke", fake)
+    result = anki.read_review_history(Settings(api_key="sk-test"), [10, 11])
+    assert result["totals"] == {
+        "notes": 2,
+        "cards": 2,
+        "learned": 2,
+        "new": 0,
+        "lapsed": 2,
+        "leeches": 1,
+    }
+    assert result["leeches"][0]["noteId"] == 11
+    assert result["leeches"][0]["front"] == "Hard card"
+    assert result["leeches"][0]["lapses"] == 4

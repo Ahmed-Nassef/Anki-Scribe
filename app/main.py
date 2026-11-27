@@ -23,6 +23,7 @@ from . import (
     ai_answers,
     anki,
     answers,
+    batch_jobs,
     cards_quality,
     chapters,
     diagnostics,
@@ -178,6 +179,13 @@ class PlanBody(BaseModel):
 
 class PlanSourcesBody(BaseModel):
     file_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+class BatchJobBody(BaseModel):
+    file_ids: list[str] = Field(default_factory=list, max_length=200)
+    mode: str = Field(default="basic", max_length=20)
+    style: str = Field(default="balanced", max_length=40)
+    strict: bool = False
 
 
 class DeckBody(BaseModel):
@@ -397,6 +405,14 @@ def create_app(
     app.state.drafts = drafts or DraftStore()
     app.state.sent = sent or SentStore()
     app.state.masks = mask_store or MaskStore()
+    app.state.batch_jobs = batch_jobs.BatchJobStore(
+        app.state.store,
+        app.state.library,
+        app.state.drafts,
+        app.state.settings,
+        path=app.state.store.root.parent / "batch_jobs.json",
+    )
+    app.state.batch_jobs.resume()
     # Automatic masks are a pure function of the document and its cards, but
     # computing them walks every page. Toggling study mode on and off should
     # feel instant, so the last few results stay in memory.
@@ -1016,6 +1032,39 @@ def create_app(
         }
         return {"files": rows, "total": total}
 
+    @app.post("/api/batch-jobs")
+    def create_batch_job(body: BatchJobBody) -> dict:
+        try:
+            return app.state.batch_jobs.create(
+                body.file_ids,
+                mode=body.mode,
+                style=body.style,
+                strict=body.strict,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    @app.get("/api/batch-jobs")
+    def list_batch_jobs() -> dict:
+        return {
+            "active": app.state.batch_jobs.active(),
+            "jobs": app.state.batch_jobs.recent(),
+        }
+
+    @app.get("/api/batch-jobs/{job_id}")
+    def get_batch_job(job_id: str) -> dict:
+        try:
+            return app.state.batch_jobs.status(job_id)
+        except KeyError as exc:
+            raise HTTPException(404, "That batch job no longer exists.") from exc
+
+    @app.post("/api/batch-jobs/{job_id}/cancel")
+    def cancel_batch_job(job_id: str) -> dict:
+        try:
+            return app.state.batch_jobs.cancel(job_id)
+        except KeyError as exc:
+            raise HTTPException(404, "That batch job no longer exists.") from exc
+
     # -- generation ------------------------------------------------------
 
     @app.get("/api/ai/balance")
@@ -1195,6 +1244,41 @@ def create_app(
         return library_snapshot()
 
     # -- anki ------------------------------------------------------------
+
+    @app.post("/api/anki/review-history")
+    def anki_review_history(body: PlanSourcesBody) -> dict:
+        files: list[dict] = []
+        all_ids: list[int] = []
+        source_by_note: dict[int, dict] = {}
+        for file_id in body.file_ids:
+            try:
+                file = app.state.library.get_file(file_id)
+            except LibraryError:
+                continue
+            cards = app.state.sent.get(file.path).get("cards", [])
+            for card in cards:
+                if not isinstance(card, dict) or not card.get("noteId"):
+                    continue
+                note_id = int(card["noteId"])
+                source_by_note.setdefault(note_id, card.get("source") or {})
+            ids = sorted(
+                {
+                    int(card["noteId"])
+                    for card in cards
+                    if isinstance(card, dict) and card.get("noteId")
+                }
+            )
+            files.append({"fileId": file.id, "name": file.name, "notes": len(ids)})
+            all_ids.extend(ids)
+        try:
+            history = anki.read_review_history(
+                app.state.settings, sorted(set(all_ids))
+            )
+        except anki.AnkiError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        for leech in history.get("leeches", []):
+            leech["source"] = source_by_note.get(leech.get("noteId"), {})
+        return {"files": files, **history}
 
     @app.get("/api/anki/status")
     def anki_status() -> dict:

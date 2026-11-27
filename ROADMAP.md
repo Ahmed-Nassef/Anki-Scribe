@@ -12,8 +12,16 @@ tested, not “mostly working”.
 - Q&A and cloze generation, quality gate, triage, risk ranking and undo
 - Hidden answers with type colours, a legend, click-again-to-hide and AI fill
 - Library, groups, batch generation and multi-file planning
+- **Persistent server-side batch queue**: files are processed in a daemon
+  thread, progress is stored in `batch_jobs.json`, and an interrupted job
+  resumes after restart. The browser may close without stopping it.
 - FSRS-6 study plan with exam date, daily start/end window, All day, and
-  hour-by-hour workload blocks
+  **per-file allocation** of new items across the table and hourly blocks
+- **Study sessions and breaks**: configurable session length and break length,
+  plus a **Calendar .ics** download with a 10-minute alarm per session
+- **Anki review history and leeches**: reads `notesInfo`/`cardsInfo` for pushed
+  note ids, shows reviewed/lapsed/leech totals, lists cards with 4+ lapses, and
+  moves to the source page when it is the open file
 - **Focused study mode**: full-screen pages, minimal HUD, keyboard-first
   navigation and answer control (see below)
 - Anki push, deck picker, coverage, source map, figure cards
@@ -23,10 +31,9 @@ tested, not “mostly working”.
 
 | Priority | Feature | Gap |
 | --- | --- | --- |
-| High | Server-side job queue and resume | Batch generation is a browser queue. Closing the tab or restarting stops it; there is no resume-after-crash. |
-| High | Per-file schedule allocation | Multi-file planning sums items into one schedule. It does not say “Week 1 from 08:00–09:00, Week 2 from 09:00–10:00.” |
-| High | True intraday schedule | The hourly view is a workload estimate. It has no breaks, real FSRS steps within a day, calendar `.ics` export or reminders. |
-| High | Anki review-history / leech loop | The plan treats every item as new. It cannot read actual reviews, lapses or leeches, so it cannot adapt to what the student really knows. |
+| High | True FSRS intraday steps | Sessions have breaks and a calendar file, but the scheduler still models day-level FSRS intervals. It does not schedule minute-level learning steps or a second recall pass inside the day. |
+| High | Adaptive plan from Anki history | History and leeches are read and shown, but the planner still treats every item as new. It does not subtract learned cards, reschedule due reviews, or build a leech-repair plan. |
+| High | Leech repair loop | Leeches are listed and can open their source page, but there is no regenerate/rewrite/retire action from the leech dialog. |
 | Medium | Cost preview and usage cap | Batch and multi-file runs can use a lot of DeepSeek credit with no estimate beforehand and no hard cap. |
 | Medium | Study-sheet type-to-reveal and AnkiWeb sync | Markdown export exists; the interactive type-to-reveal sheet and AnkiWeb sync do not. |
 | Medium | Onboarding wizard | The single-instance half is built; the first-run wizard is not. |
@@ -57,12 +64,16 @@ small HUD.
 
 ## Recommended order
 
-For the current exam workflow, do these first:
+The originally planned high-priority infrastructure is shipped: batch jobs now
+live on the server and resume, the plan allocates new items by file, sessions
+have breaks and export to `.ics`, and real Anki lapses are visible.
 
-1. Server-side job queue and resume, so a multi-file generation survives a
-   closed tab.
-2. Per-file allocation in the plan, so a combined schedule says which file and
-   page range fills each block.
-3. Reading Anki review history, so the plan adapts instead of treating every
-   card as new.
-4. Cost preview and a spending cap before large batch runs.
+What remains at the top of the list:
+
+1. Make the planner consume Anki history: mark learned items separately and
+   schedule their real due dates instead of treating everything as new.
+2. Add minute-level learning steps and a same-day recall pass, so the hourly
+   view models FSRS rather than only workload.
+3. Close the leech loop: rewrite, suspend or regenerate a leech directly from
+   the Leeches dialog.
+4. Add cost preview and a spending cap before large batch runs.

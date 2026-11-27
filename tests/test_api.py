@@ -1061,3 +1061,11 @@ def test_plan_sources_counts_selected_files(client, tmp_path):
         "total": 6,
     }
     assert result["files"][0]["name"] == "planned.pdf"
+
+
+def test_batch_jobs_listing_and_empty_create(client):
+    listing = client.get("/api/batch-jobs")
+    assert listing.status_code == 200
+    assert listing.json()["jobs"] == []
+    empty = client.post("/api/batch-jobs", json={"file_ids": []})
+    assert empty.status_code == 400

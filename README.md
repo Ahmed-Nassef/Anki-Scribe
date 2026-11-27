@@ -1,6 +1,6 @@
 > Tracking repository for the Anki Scribe learning system: card generation,
-> hidden-answer study view, automatic OCR, FSRS-6 planning across files, and
-> focused study mode.
+> hidden-answer study view, automatic OCR, FSRS-6 planning across files,
+> persistent batch jobs, Anki review history and focused study mode.
 
 # Anki Scribe
 
@@ -226,13 +226,14 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   shows **Missing**. Put it back, or remove it and add it again from its new
   location.
 - **Batch files:** open **Library**, tick several files, then press **Generate
-  selected**. It runs the same *Auto from whole file* flow for each file in
-  turn — opening it, planning chapters, generating section by section, saving
-  its drafts, then moving to the next. The progress panel says which file is
-  running and the final summary counts cards and failures. **Select all**
-  picks every available file; missing files are disabled. Stop cancels the
-  current file and the rest of the queue, and cards already generated are kept.
-  This is the expensive route: one DeepSeek run per file.
+  selected**. The batch runs on the server, not in the browser tab: it opens
+  each file, extracts it into sections, generates cards, merges them into that
+  file's drafts, and writes progress to `batch_jobs.json`. You can close the tab
+  or restart the app; the job resumes on the next start. The progress panel says
+  which file is running and the final summary counts cards and failures.
+  **Select all** picks every available file; missing files are disabled. Stop
+  cancels the current job, and cards already generated are kept. This is the
+  expensive route: one DeepSeek run per file.
 - **Plan several files:** tick the files and press **Plan selected** instead.
   The plan modal counts drafts, pushed cards, clozes and manual hides in every
   selected file, then builds one combined schedule. The same modal is available
@@ -395,7 +396,9 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   study, and how many days before the exam should stay review-only. To plan
   several files together, open **Library**, tick them, and press **Plan
   selected** — the modal counts drafts, pushed cards and hand-hidden answers
-  across every selected file.
+  across every selected file, and the table gets a **Files** column that splits
+  each day's new items by file. A **Plan by file** summary shows what is planned
+  and what is beyond the current item count.
   A study item is one schedulable card: a Q&A card, a figure card, **each
   distinct cloze deletion**, or an answer you hid by hand. The plan walks
   FSRS-6 forward: each day it reviews the items that are due, then introduces
@@ -405,14 +408,22 @@ Anki Scribe binds to `127.0.0.1` only and is not reachable from other computers.
   every review is assumed to be recalled, so a lapse would add workload. It
   also stops on the day before the exam, so exam morning is not scheduled.
   For a one-day plan, set the exam date to tomorrow and the buffer to 0; the
-  **Hour-by-hour** panel splits that day's workload across your study window.
-  If the plan does not fit, it says how many minutes the heaviest day needs and
+  **Hour-by-hour** panel splits that day's workload across your study window,
+  with configurable **session length** and **break** (50/10 by default).
+  **Calendar .ics** downloads the study sessions with a 10-minute alarm;
+  import it into Google Calendar, Outlook or Apple Calendar. If the plan does
+  not fit, it says how many minutes the heaviest day needs and
   how many items actually fit at your pace — or you can add days, widen the
   window or shorten the review buffer. **Copy plan** copies the summary and
-  table as Markdown. It cannot read Anki's review history, so it treats every
-  item as new; cards already scheduled in Anki keep their own reviews. The
+  table as Markdown. It can read reviewed/lapsed/leech totals from Anki for the
+  selected files, but it still treats every item as new in the schedule;
+  cards already scheduled in Anki keep their own reviews. The
   FSRS-6 math is adapted from the MIT-licensed
   [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs) reference.
+- **Leeches:** the **Leeches** link above Review reads Anki's real review
+  history for cards pushed from this file. It shows cards with four or more
+  lapses, their review and lapse counts, the deck and source; if the source is
+  the page that is open, **Show page** jumps straight there.
 - **Source map:** teal-highlighted text already has a card — **click the
   highlighted line and the review panel jumps to that card** and flashes it
   (a line quoted by several cards cycles through them). Clicking a card's
@@ -573,6 +584,7 @@ app/
   masks.py       manual hidden-text persistence
   fsrs.py        FSRS-6 intervals used by the study plan
   planner.py     day-by-day new/review/time plan from an exam date
+  batch_jobs.py  persistent server-side batch generation and resume
   picker.py      native Windows file picker
   ocr.py         Windows OCR + RapidOCR fallback and two-column reading order
   llm.py         DeepSeek client, prompts, JSON/card validation
@@ -596,6 +608,7 @@ app/
       plan.js      FSRS-6 study-plan dialog
       ocr.js       automatic OCR progress and retry
       focus.js     distraction-free study mode
+      leeches.js   Anki review history and leech list
       cards.js     generation, review cards and editing
       study.js     study view, cloze masking and sheet export
       auto.js      chapter-aware whole-file generation

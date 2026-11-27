@@ -774,6 +774,131 @@ async function planSelectedLibraryFiles() {
   await openPlanDialog({ fileIds: selected.map((file) => file.id) });
 }
 
+async function runServerBatch(selected) {
+  const job = await api("/api/batch-jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file_ids: selected.map((file) => file.id),
+      mode: state.mode,
+      style: state.style,
+      strict: Boolean(state.strict),
+    }),
+  });
+  await pollServerBatch(job, selected);
+}
+
+async function pollServerBatch(job, files) {
+  state.batch.jobId = job.id;
+  state.batch.total = files.length;
+  let latest = job;
+  while (true) {
+    if (
+      state.batch.cancelled &&
+      ["queued", "running"].includes(latest.status)
+    ) {
+      try {
+        latest = await api(`/api/batch-jobs/${latest.id}/cancel`, {
+          method: "POST",
+        });
+      } catch {
+        // The job may have just finished; the next GET settles it.
+      }
+    }
+    latest = await api(`/api/batch-jobs/${latest.id}`);
+    state.batch.index = Math.min(
+      files.length,
+      Number(latest.nextFile) + (latest.status === "running" ? 1 : 0)
+    );
+    state.batch.results = Array.isArray(latest.results) ? latest.results : [];
+    if (["queued", "running"].includes(latest.status)) {
+      const fileLabel = latest.currentFile
+        ? `File ${Math.min(files.length, Number(latest.nextFile) + 1)}/${files.length} \u00b7 ${latest.currentFile}`
+        : `Starting ${files.length} files\u2026`;
+      showAutoPanel(
+        fileLabel,
+        `${latest.cards} card${latest.cards === 1 ? "" : "s"} \u00b7 ${latest.percent}%`
+      );
+      await batchSleep(900);
+      continue;
+    }
+    await finishServerBatch(latest);
+    return;
+  }
+}
+
+async function finishServerBatch(job) {
+  state.batch.running = false;
+  state.auto.batch = null;
+  const results = Array.isArray(job.results) ? job.results : [];
+  const cards = Number(job.cards) || 0;
+  const failed = results.filter((entry) => !entry.ok);
+  const completed = results.filter((entry) => entry.ok).length;
+  const stopped = job.status === "cancelled" || state.batch.cancelled;
+  const jobError = job.status === "error" ? job.error || "The job stopped." : "";
+  finishAuto(
+    stopped
+      ? `Batch stopped \u00b7 ${cards} card${cards === 1 ? "" : "s"}`
+      : jobError
+        ? "Batch stopped on an error"
+        : `Batch finished \u00b7 ${cards} card${cards === 1 ? "" : "s"}`,
+    jobError ||
+      `${completed} of ${state.batch.total} file${state.batch.total === 1 ? "" : "s"} finished` +
+        (failed.length ? ` \u00b7 ${failed.length} failed` : "") +
+        ".",
+    stopped || failed.length || jobError ? "info" : "success"
+  );
+  toast(
+    jobError
+      ? `Batch stopped: ${jobError}`
+      : stopped
+        ? `Batch stopped after ${cards} cards.`
+        : `Generated ${cards} card${cards === 1 ? "" : "s"} from ${completed} file${completed === 1 ? "" : "s"}.` +
+            (failed.length ? ` ${failed.length} failed.` : ""),
+    stopped || failed.length || jobError ? "info" : "success",
+    9000
+  );
+  state.librarySelection.clear();
+  try {
+    await loadLibrary({ quiet: true });
+  } catch {
+    // The library refresh is cosmetic after a batch.
+  }
+  renderLibrary();
+  updateLibraryBatchButton();
+  const last = results.filter((entry) => entry.ok).at(-1);
+  if (last && last.fileId) {
+    await openLibraryFile(last.fileId, {
+      skipConfirm: true,
+      quiet: true,
+      alreadyBusy: false,
+    });
+  }
+}
+
+async function resumeServerBatch() {
+  if (state.batch.running) return;
+  try {
+    const data = await api("/api/batch-jobs");
+    const active = Array.isArray(data.active) ? data.active : [];
+    if (!active.length) return;
+    const job = active[0];
+    state.batch = {
+      running: true,
+      cancelled: false,
+      index: 0,
+      total: job.files?.length || job.fileIds?.length || 0,
+      results: [],
+      jobId: job.id,
+    };
+    state.auto.batch = null;
+    showAutoPanel("Resuming server batch\u2026", job.currentFile || "Reading progress");
+    await pollServerBatch(job, job.files || []);
+  } catch {
+    // Older servers have no batch-job API; normal client batch still works.
+  }
+}
+
 async function runLibraryBatch() {
   if (state.batch.running || state.auto.running || state.generating) {
     toast("A generation run is already in progress.", "info", 4000);
@@ -810,11 +935,30 @@ async function runLibraryBatch() {
     index: 0,
     total: selected.length,
     results: [],
+    jobId: null,
   };
   state.auto.batch = null;
   hideAutoPanel();
   updateLibraryBatchButton();
   showAutoPanel("Starting batch\u2026", `${selected.length} files queued`);
+
+  // Prefer the persistent server job: it survives a closed tab and resumes
+  // after an app restart. A server from before this endpoint existed returns
+  // 404; in that case keep the old browser queue as a compatibility fallback.
+  try {
+    await saveDraftsNow();
+    await runServerBatch(selected);
+    return;
+  } catch (error) {
+    if (!/not found|404|405/i.test(error.message)) {
+      state.batch.running = false;
+      state.batch.jobId = null;
+      finishAuto("Batch didn't start", error.message, "error");
+      toast(`Couldn't start the batch: ${error.message}`, "error", 9000);
+      updateLibraryBatchButton();
+      return;
+    }
+  }
 
   try {
     for (let index = 0; index < selected.length; index += 1) {

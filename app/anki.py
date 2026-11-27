@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 from typing import Any
 
@@ -405,4 +406,117 @@ def push_cards(
         "created": created,
         "duplicates": duplicates,
         "noteIds": note_ids,
+    }
+
+
+def _plain_field(value: Any) -> str:
+    text = html.unescape(str(value or ""))
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"[ \t]+", " ", text).strip()
+
+
+def read_review_history(settings: Settings, note_ids: list[int]) -> dict:
+    """Read Anki's reps/lapses for notes that Anki Scribe pushed.
+
+    AnkiConnect exposes notesInfo and cardsInfo. Note ids are durable in the
+    sent ledger, so this joins a source file to its real review state without
+    guessing from deck names.
+    """
+    ids = [int(note_id) for note_id in note_ids if note_id]
+    if not ids:
+        return {
+            "totals": {
+                "notes": 0,
+                "cards": 0,
+                "learned": 0,
+                "new": 0,
+                "lapsed": 0,
+                "leeches": 0,
+            },
+            "leeches": [],
+        }
+    notes: list[dict] = []
+    for start in range(0, len(ids), 500):
+        chunk = ids[start : start + 500]
+        result = _invoke(settings, "notesInfo", notes=chunk)
+        if isinstance(result, list):
+            notes.extend(note for note in result if isinstance(note, dict))
+    card_ids: list[int] = []
+    by_note: dict[int, list[int]] = {}
+    for note in notes:
+        note_id = int(note.get("noteId") or 0)
+        cards = note.get("cards") if isinstance(note.get("cards"), list) else []
+        by_note[note_id] = [int(card_id) for card_id in cards]
+        card_ids.extend(by_note[note_id])
+    infos: list[dict] = []
+    for start in range(0, len(card_ids), 500):
+        chunk = card_ids[start : start + 500]
+        result = _invoke(settings, "cardsInfo", cards=chunk)
+        if isinstance(result, list):
+            infos.extend(info for info in result if isinstance(info, dict))
+    note_by_card: dict[int, dict] = {}
+    for note in notes:
+        note_id = int(note.get("noteId") or 0)
+        for card_id in by_note.get(note_id, []):
+            note_by_card[card_id] = note
+    learned = 0
+    new = 0
+    lapsed = 0
+    leeches: list[dict] = []
+    for info in infos:
+        card_id = int(info.get("cardId") or 0)
+        note = note_by_card.get(card_id, {})
+        reps = int(info.get("reps") or 0)
+        lapses = int(info.get("lapses") or 0)
+        card_type = int(info.get("type") or 0)
+        if reps > 0:
+            learned += 1
+        if card_type == 0:
+            new += 1
+        if lapses > 0:
+            lapsed += 1
+        fields = note.get("fields") if isinstance(note.get("fields"), dict) else {}
+        front = next(
+            (
+                _plain_field(value.get("value") if isinstance(value, dict) else value)
+                for key, value in fields.items()
+                if str(key).lower() in {"front", "text", "question"}
+            ),
+            "",
+        )
+        back = next(
+            (
+                _plain_field(value.get("value") if isinstance(value, dict) else value)
+                for key, value in fields.items()
+                if str(key).lower() in {"back", "answer", "extra"}
+            ),
+            "",
+        )
+        if lapses >= 4:
+            leeches.append(
+                {
+                    "noteId": int(note.get("noteId") or 0),
+                    "cardId": card_id,
+                    "deck": str(info.get("deckName") or ""),
+                    "model": str(note.get("modelName") or ""),
+                    "front": front[:500],
+                    "back": back[:500],
+                    "reps": reps,
+                    "lapses": lapses,
+                    "interval": int(info.get("interval") or 0),
+                    "due": info.get("due"),
+                }
+            )
+    leeches.sort(key=lambda entry: (-entry["lapses"], -entry["reps"], entry["front"]))
+    return {
+        "totals": {
+            "notes": len(notes),
+            "cards": len(infos),
+            "learned": learned,
+            "new": new,
+            "lapsed": lapsed,
+            "leeches": len(leeches),
+        },
+        "leeches": leeches[:100],
     }

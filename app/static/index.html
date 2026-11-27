@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>Anki Scribe</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/styles.css?v=20261127h">
+  <link rel="stylesheet" href="/static/css/styles.css?v=20261127i">
 </head>
 <body>
 <div class="app">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="top-actions">
-      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦">
+      <button type="button" class="status" id="ankiStatus" title="Checking AnkiConnectÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦">
         <span class="dot"></span><span id="ankiLabel">Anki</span>
       </button>
       <button type="button" class="credit-pill" id="aiBalanceStatus" title="DeepSeek balance">
@@ -296,6 +296,7 @@
             </div>
             <div class="head-actions">
               <button type="button" class="text-btn" id="planBtn" hidden title="Build a day-by-day schedule from your exam date and daily study time">Study plan</button>
+              <button type="button" class="text-btn" id="leechesBtn" hidden title="Cards with repeated lapses in Anki">Leeches</button>
               <button type="button" class="text-btn" id="undoBtn" disabled title="Nothing to undo">Undo</button>
               <button type="button" class="text-btn danger" id="clearHistory" hidden>Clear history</button>
               <button type="button" class="text-btn danger" id="clearCards" hidden>Clear all</button>
@@ -604,7 +605,7 @@
     <header class="modal-head">
       <div>
         <h2>Send to Anki</h2>
-        <p id="pushDialogSummary">Checking your collectionÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</p>
+        <p id="pushDialogSummary">Checking your collectionÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</p>
       </div>
       <button type="button" class="icon-btn" id="closePush" aria-label="Close">&times;</button>
     </header>
@@ -683,7 +684,7 @@
             <input type="time" id="planStart" value="08:00" aria-label="Study start time">
             <span>to</span>
             <input type="time" id="planEnd" value="22:00" aria-label="Study end time">
-            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“23:59">All day</button>
+            <button type="button" class="text-btn" id="planAllDay" title="Use 00:00ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ23:59">All day</button>
           </div>
           <em class="plan-hint" id="planWindowHint"></em>
           <input type="hidden" id="planMinutes" value="840">
@@ -736,6 +737,14 @@
             <span>Review (seconds)</span>
             <input type="number" id="planReviewSeconds" min="3" max="600" value="15">
           </label>
+          <label class="field">
+            <span>Session length (minutes)</span>
+            <input type="number" id="planSession" min="10" max="180" step="5" value="50">
+          </label>
+          <label class="field">
+            <span>Break (minutes)</span>
+            <input type="number" id="planBreak" min="0" max="60" step="5" value="10">
+          </label>
         </div>
       </details>
 
@@ -744,8 +753,27 @@
 
     <footer class="modal-foot">
       <button type="button" class="btn" id="planCancel">Close</button>
+      <button type="button" class="btn" id="planIcs" hidden>Calendar .ics</button>
       <button type="button" class="btn" id="planCopy" hidden>Copy plan</button>
       <button type="button" class="btn primary" id="planRun">Make schedule</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="modal leeches-modal" id="leechesDialog">
+  <form method="dialog">
+    <header class="modal-head">
+      <div>
+        <h2>Leeches</h2>
+        <p id="leechesSummary">Cards with repeated lapses in Anki.</p>
+      </div>
+      <button type="button" class="icon-btn" id="closeLeeches" aria-label="Close">&times;</button>
+    </header>
+    <div class="modal-body">
+      <div class="leeches-list" id="leechesList"></div>
+    </div>
+    <footer class="modal-foot">
+      <button type="button" class="btn" id="leechesClose">Close</button>
     </footer>
   </form>
 </dialog>
@@ -808,32 +836,33 @@
 
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 <noscript><p style="padding:24px">Anki Scribe needs JavaScript enabled.</p></noscript>
-<script src="/static/js/core.js?v=20261127h"></script>
-<script src="/static/js/risk.js?v=20261127h"></script>
-<script src="/static/js/settings.js?v=20261127h"></script>
-<script src="/static/js/drafts.js?v=20261127h"></script>
-<script src="/static/js/deck.js?v=20261127h"></script>
-<script src="/static/js/library.js?v=20261127h"></script>
-<script src="/static/js/documents.js?v=20261127h"></script>
-<script src="/static/js/source.js?v=20261127h"></script>
-<script src="/static/js/answers.js?v=20261127h"></script>
-<script src="/static/js/plan.js?v=20261127h"></script>
-<script src="/static/js/ocr.js?v=20261127h"></script>
-<script src="/static/js/focus.js?v=20261127h"></script>
-<script src="/static/js/cards.js?v=20261127h"></script>
-<script src="/static/js/study.js?v=20261127h"></script>
-<script src="/static/js/auto.js?v=20261127h"></script>
-<script src="/static/js/coverage.js?v=20261127h"></script>
-<script src="/static/js/triage.js?v=20261127h"></script>
-<script src="/static/js/objectives.js?v=20261127h"></script>
-<script src="/static/js/events.js?v=20261127h"></script>
-<script src="/static/js/app.js?v=20261127h"></script>
+<script src="/static/js/core.js?v=20261127i"></script>
+<script src="/static/js/risk.js?v=20261127i"></script>
+<script src="/static/js/settings.js?v=20261127i"></script>
+<script src="/static/js/drafts.js?v=20261127i"></script>
+<script src="/static/js/deck.js?v=20261127i"></script>
+<script src="/static/js/library.js?v=20261127i"></script>
+<script src="/static/js/documents.js?v=20261127i"></script>
+<script src="/static/js/source.js?v=20261127i"></script>
+<script src="/static/js/answers.js?v=20261127i"></script>
+<script src="/static/js/plan.js?v=20261127i"></script>
+<script src="/static/js/ocr.js?v=20261127i"></script>
+<script src="/static/js/focus.js?v=20261127i"></script>
+<script src="/static/js/leeches.js?v=20261127i"></script>
+<script src="/static/js/cards.js?v=20261127i"></script>
+<script src="/static/js/study.js?v=20261127i"></script>
+<script src="/static/js/auto.js?v=20261127i"></script>
+<script src="/static/js/coverage.js?v=20261127i"></script>
+<script src="/static/js/triage.js?v=20261127i"></script>
+<script src="/static/js/objectives.js?v=20261127i"></script>
+<script src="/static/js/events.js?v=20261127i"></script>
+<script src="/static/js/app.js?v=20261127i"></script>
 <script>
   // A stale cached client used to leave the page looking alive with dead
   // buttons. Reload once if app.js is from an older asset version; only show a
   // notice if the version matches but boot still hasn't finished.
   (function () {
-    var version = "20261127h";
+    var version = "20261127i";
     function notice() {
       var el = document.createElement("div");
       el.textContent = "Anki Scribe didn't finish loading. Refresh the page (Ctrl+R).";

@@ -169,6 +169,7 @@ function updateSheetActions() {
       ? `Build a day-by-day schedule from ${available} study items`
       : "Generate cards or hide an answer first";
   }
+  if (els.leechesBtn) els.leechesBtn.hidden = !state.doc;
 }
 
 /* ------------------------------------------------------------------ */

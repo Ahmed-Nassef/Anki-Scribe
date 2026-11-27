@@ -3317,3 +3317,113 @@ body.is-studying .answer-mask::after {
 body.is-studying .answer-mask.is-revealed {
   opacity: 0.34;
 }
+
+.plan-table .plan-files {
+  max-width: 210px;
+  text-align: left;
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--muted);
+  white-space: normal;
+}
+.plan-file-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 9px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 10px;
+}
+.plan-file-summary > strong {
+  margin-bottom: 2px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.plan-file-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 4px;
+}
+.plan-file-row:first-of-type { border-top: 0; padding-top: 0; }
+.plan-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ink);
+}
+.plan-file-count { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.plan-hours-files {
+  margin: 2px 0 5px;
+  font-size: 9px;
+  color: var(--muted-2);
+}
+
+.plan-hour.is-break {
+  color: var(--muted-2);
+}
+.plan-hour.is-break .plan-hour-range {
+  color: var(--muted-2);
+  font-weight: 500;
+}
+.plan-hour.is-break .plan-hour-work {
+  font-style: italic;
+}
+
+.leeches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.leech-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.leech-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.leech-head strong {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.leech-count {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--danger);
+}
+.leech-back {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.leech-meta,
+.leech-source {
+  font-size: 9px;
+  color: var(--muted-2);
+}
+.leech-item .text-btn { align-self: flex-start; padding: 2px 0; }
+.leeches-empty {
+  margin: 10px 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}

@@ -285,6 +285,8 @@ function savePlanPrefs(payload) {
         weekdays: payload.weekdays,
         new_seconds: payload.new_seconds,
         review_seconds: payload.review_seconds,
+        session_minutes: payload.session_minutes,
+        break_minutes: payload.break_minutes,
       })
     );
   } catch {
@@ -297,6 +299,7 @@ async function openPlanDialog(options = {}) {
   state.plan.scopeIds = fileIds;
   state.plan.sources = [];
   state.plan.approximate = false;
+  state.plan.history = null;
   if (fileIds.length) {
     try {
       const data = await api("/api/plan/sources", {
@@ -326,6 +329,17 @@ async function openPlanDialog(options = {}) {
           10000
         );
       }
+    }
+  }
+  if (fileIds.length) {
+    try {
+      state.plan.history = await api("/api/anki/review-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_ids: fileIds }),
+      });
+    } catch {
+      state.plan.history = null;
     }
   }
   if (!state.doc && !fileIds.length) {
@@ -381,6 +395,10 @@ async function openPlanDialog(options = {}) {
   els.planRating.value = String(prefs.rating || 3);
   els.planNewSeconds.value = String(prefs.new_seconds || 60);
   els.planReviewSeconds.value = String(prefs.review_seconds || 15);
+  els.planSession.value = String(prefs.session_minutes || 50);
+  els.planBreak.value = String(
+    Number.isFinite(Number(prefs.break_minutes)) ? prefs.break_minutes : 10
+  );
   const weekdays = Array.isArray(prefs.weekdays) ? prefs.weekdays : [0, 1, 2, 3, 4, 5, 6];
   document.querySelectorAll("[data-weekday]").forEach((box) => {
     box.checked = weekdays.includes(Number(box.dataset.weekday));
@@ -393,6 +411,7 @@ async function openPlanDialog(options = {}) {
   els.planResult.hidden = true;
   els.planResult.replaceChildren();
   els.planCopy.hidden = true;
+  if (els.planIcs) els.planIcs.hidden = true;
   els.planRun.disabled = false;
   els.planRun.textContent = "Make schedule";
   state.plan.result = null;
@@ -413,8 +432,14 @@ function updatePlanNote(available) {
   const sourceText = sourceCount
     ? ` ${sourceCount} selected file${sourceCount === 1 ? "" : "s"}; `
     : " ";
+  const history = state.plan.history?.totals;
+  const historyText =
+    history && history.cards
+      ? `Anki history: ${history.learned} reviewed, ${history.lapsed} with lapses, ${history.leeches} leech${history.leeches === 1 ? "" : "es"}; this planner still treats the items as new. `
+      : "";
   els.planNote.textContent =
     `${breakdown}.${sourceText}` +
+    historyText +
     (sent && !sourceCount
       ? `${sent} cards are already in Anki; the plan treats every item as new because it cannot read Anki's review history. `
       : "") +
@@ -428,6 +453,7 @@ function closePlanDialog() {
   state.plan.scopeIds = [];
   state.plan.sources = [];
   state.plan.approximate = false;
+  state.plan.history = null;
   if (els.planDialog && els.planDialog.open) els.planDialog.close();
 }
 
@@ -465,11 +491,19 @@ function collectPlanPayload() {
   const rating = Number(els.planRating.value);
   const newSeconds = Number(els.planNewSeconds.value);
   const reviewSeconds = Number(els.planReviewSeconds.value);
+  const sessionMinutes = Number(els.planSession.value);
+  const breakMinutes = Number(els.planBreak.value);
   if (!Number.isFinite(newSeconds) || newSeconds < 5) {
     throw new Error("Seconds per new card must be at least 5.");
   }
   if (!Number.isFinite(reviewSeconds) || reviewSeconds < 3) {
     throw new Error("Seconds per review must be at least 3.");
+  }
+  if (!Number.isFinite(sessionMinutes) || sessionMinutes < 10) {
+    throw new Error("A study session must be at least 10 minutes.");
+  }
+  if (!Number.isFinite(breakMinutes) || breakMinutes < 0) {
+    throw new Error("The break cannot be negative.");
   }
   return {
     start,
@@ -484,6 +518,8 @@ function collectPlanPayload() {
     rating,
     new_seconds: Math.round(newSeconds),
     review_seconds: Math.round(reviewSeconds),
+    session_minutes: Math.round(sessionMinutes),
+    break_minutes: Math.round(breakMinutes),
   };
 }
 
@@ -505,14 +541,49 @@ function planText(tag, className, value) {
   return node;
 }
 
-function renderPlanTable(result, payload) {
+function planShortFile(name) {
+  const stem = String(name || "File").replace(/\.[^.]+$/, "");
+  return stem.length > 18 ? `${stem.slice(0, 17)}\u2026` : stem;
+}
+
+function allocatePlanFiles(result) {
+  const sources = state.plan.sources || [];
+  if (sources.length < 2 || !result || !Array.isArray(result.days)) return null;
+  const remaining = new Map(
+    sources.map((source) => [
+      String(source.fileId),
+      Math.max(0, Number(source.total) || 0),
+    ])
+  );
+  const totals = new Map(sources.map((source) => [String(source.fileId), 0]));
+  for (const row of result.days) {
+    let left = Math.max(0, Number(row.new) || 0);
+    const parts = [];
+    for (const source of sources) {
+      if (left <= 0) break;
+      const key = String(source.fileId);
+      const take = Math.min(left, remaining.get(key) || 0);
+      if (!take) continue;
+      remaining.set(key, (remaining.get(key) || 0) - take);
+      totals.set(key, (totals.get(key) || 0) + take);
+      parts.push({ fileId: key, name: source.name, count: take });
+      left -= take;
+    }
+    row.filePlan = parts;
+  }
+  return { sources, totals, remaining };
+}
+
+function renderPlanTable(result, payload, showFiles = false) {
   const wrap = document.createElement("div");
   wrap.className = "plan-table-wrap";
   const table = document.createElement("table");
   table.className = "plan-table";
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  for (const label of ["Date", "New", "Reviews", "Time", "Learned"]) {
+  const headers = ["Date", "New", "Reviews", "Time", "Learned"];
+  if (showFiles) headers.splice(2, 0, "Files");
+  for (const label of headers) {
     headRow.appendChild(planText("th", "", label));
   }
   thead.appendChild(headRow);
@@ -525,6 +596,20 @@ function renderPlanTable(result, payload) {
     if (!row.new && !row.reviews) tr.classList.add("is-empty");
     tr.appendChild(planText("td", "plan-date", formatPlanDate(row.date)));
     tr.appendChild(planText("td", "plan-num", row.new ? `+${row.new}` : "\u2014"));
+    if (showFiles) {
+      const parts = Array.isArray(row.filePlan) ? row.filePlan : [];
+      tr.appendChild(
+        planText(
+          "td",
+          "plan-files",
+          parts.length
+            ? parts
+                .map((part) => `${planShortFile(part.name)} ${part.count}`)
+                .join(" \u00b7 ")
+            : "\u2014"
+        )
+      );
+    }
     tr.appendChild(planText("td", "plan-num", row.reviews ? String(row.reviews) : "\u2014"));
     tr.appendChild(planText("td", "plan-time", formatPlanMinutes(row.minutes)));
     tr.appendChild(planText("td", "plan-num", String(row.learned)));
@@ -537,12 +622,89 @@ function renderPlanTable(result, payload) {
     "",
     `Exam \u00b7 ${formatPlanDate(payload.deadline)}`
   );
-  examCell.colSpan = 5;
+  examCell.colSpan = showFiles ? 6 : 5;
   examRow.appendChild(examCell);
   tbody.appendChild(examRow);
   table.appendChild(tbody);
   wrap.appendChild(table);
   return wrap;
+}
+
+function renderPlanFiles(allocation) {
+  if (!allocation) return document.createDocumentFragment();
+  const box = document.createElement("div");
+  box.className = "plan-file-summary";
+  const head = document.createElement("strong");
+  head.textContent = "Plan by file";
+  box.appendChild(head);
+  for (const source of allocation.sources) {
+    const key = String(source.fileId);
+    const planned = allocation.totals.get(key) || 0;
+    const left = allocation.remaining.get(key) || 0;
+    const row = document.createElement("div");
+    row.className = "plan-file-row";
+    row.append(
+      planText("span", "plan-file-name", planShortFile(source.name)),
+      planText(
+        "span",
+        "plan-file-count",
+        `${planned} planned${left ? ` \u00b7 ${left} beyond this plan` : ""}`
+      )
+    );
+    box.appendChild(row);
+  }
+  return box;
+}
+
+function planDaySessions(day, payload) {
+  const start = planClock(payload.start_time, 8 * 60);
+  const end = planClock(payload.end_time, 22 * 60);
+  const sessionMinutes = Math.max(
+    10,
+    Math.min(180, Number(payload.session_minutes) || 50)
+  );
+  const breakMinutes = Math.max(0, Math.min(60, Number(payload.break_minutes) || 0));
+  let reviewLeft = Number(day.reviews) || 0;
+  let newLeft = Number(day.new) || 0;
+  let cursor = start;
+  const sessions = [];
+  while (cursor < end && (reviewLeft || newLeft)) {
+    const sessionEnd = Math.min(cursor + sessionMinutes, end);
+    let seconds = (sessionEnd - cursor) * 60;
+    const reviews = Math.min(
+      reviewLeft,
+      Math.floor(seconds / Math.max(3, Number(payload.review_seconds) || 15))
+    );
+    seconds -= reviews * Math.max(3, Number(payload.review_seconds) || 15);
+    const news = Math.min(
+      newLeft,
+      Math.floor(seconds / Math.max(5, Number(payload.new_seconds) || 60))
+    );
+    reviewLeft -= reviews;
+    newLeft -= news;
+    if (reviews || news) {
+      sessions.push({
+        start: cursor,
+        end: sessionEnd,
+        new: news,
+        reviews,
+        break: false,
+      });
+    }
+    cursor = sessionEnd;
+    if (cursor < end && breakMinutes > 0 && (reviewLeft || newLeft)) {
+      const breakEnd = Math.min(cursor + breakMinutes, end);
+      sessions.push({
+        start: cursor,
+        end: breakEnd,
+        new: 0,
+        reviews: 0,
+        break: true,
+      });
+      cursor = breakEnd;
+    }
+  }
+  return { sessions, remaining: reviewLeft + newLeft };
 }
 
 function renderPlanHours(result, payload) {
@@ -577,53 +739,52 @@ function renderPlanHours(result, payload) {
   function draw() {
     list.replaceChildren();
     const day = days.find((item) => item.date === select.value) || days[0];
-    let reviewLeft = Number(day.reviews) || 0;
-    let newLeft = Number(day.new) || 0;
-    let cursor = start;
+    if (Array.isArray(day.filePlan) && day.filePlan.length) {
+      const filesLine = document.createElement("p");
+      filesLine.className = "plan-hours-files";
+      filesLine.textContent =
+        "New: " +
+        day.filePlan
+          .map((part) => `${planShortFile(part.name)} ${part.count}`)
+          .join(" \u00b7 ");
+      list.appendChild(filesLine);
+    }
     let rendered = 0;
-    while (cursor < end && (reviewLeft || newLeft)) {
-      const bucketEnd = Math.min(cursor + 60, end);
-      let seconds = (bucketEnd - cursor) * 60;
-      const reviews = Math.min(
-        reviewLeft,
-        Math.floor(seconds / Math.max(3, Number(payload.review_seconds) || 15))
+    const plan = planDaySessions(day, payload);
+    for (const session of plan.sessions) {
+      const row = document.createElement("div");
+      row.className = session.break ? "plan-hour is-break" : "plan-hour";
+      const range = planText(
+        "span",
+        "plan-hour-range",
+        `${formatPlanClock(session.start)}\u2013${formatPlanClock(session.end)}`
       );
-      seconds -= reviews * Math.max(3, Number(payload.review_seconds) || 15);
-      const news = Math.min(
-        newLeft,
-        Math.floor(seconds / Math.max(5, Number(payload.new_seconds) || 60))
-      );
-      reviewLeft -= reviews;
-      newLeft -= news;
-      if (reviews || news) {
-        const row = document.createElement("div");
-        row.className = "plan-hour";
-        const range = planText(
-          "span",
-          "plan-hour-range",
-          `${formatPlanClock(cursor)}\u2013${formatPlanClock(bucketEnd)}`
-        );
+      if (session.break) {
+        row.append(range, planText("span", "plan-hour-work", "Break"));
+      } else {
         const counts = [];
-        if (news) counts.push(`${news} new`);
-        if (reviews) counts.push(`${reviews} review${reviews === 1 ? "" : "s"}`);
+        if (session.new) counts.push(`${session.new} new`);
+        if (session.reviews) {
+          counts.push(
+            `${session.reviews} review${session.reviews === 1 ? "" : "s"}`
+          );
+        }
         row.append(range, planText("span", "plan-hour-work", counts.join(" \u00b7 ")));
-        list.appendChild(row);
-        rendered += news + reviews;
+        rendered += session.new + session.reviews;
       }
-      cursor = bucketEnd;
+      list.appendChild(row);
     }
     if (!rendered) {
       list.appendChild(
         planText("p", "plan-hours-empty", "No items fit in this study window.")
       );
     }
-    if (reviewLeft || newLeft) {
-      const left = reviewLeft + newLeft;
+    if (plan.remaining) {
       list.appendChild(
         planText(
           "p",
           "plan-hours-empty",
-          `${left} item${left === 1 ? "" : "s"} do not fit in this window; add time or move the deadline.`
+          `${plan.remaining} item${plan.remaining === 1 ? "" : "s"} do not fit in this window; add time or move the deadline.`
         )
       );
     }
@@ -701,7 +862,9 @@ function renderPlan(result, payload) {
     target.appendChild(warnings);
   }
 
-  target.appendChild(renderPlanTable(result, payload));
+  const fileAllocation = allocatePlanFiles(result);
+  target.appendChild(renderPlanTable(result, payload, Boolean(fileAllocation)));
+  target.appendChild(renderPlanFiles(fileAllocation));
   target.appendChild(renderPlanHours(result, payload));
 
   const foot = document.createElement("p");
@@ -714,6 +877,7 @@ function renderPlan(result, payload) {
   state.plan.result = result;
   state.plan.payload = payload;
   els.planCopy.hidden = false;
+  if (els.planIcs) els.planIcs.hidden = false;
 }
 
 function renderPlanError(message) {
@@ -728,6 +892,7 @@ function renderPlanError(message) {
   );
   target.appendChild(box);
   els.planCopy.hidden = true;
+  if (els.planIcs) els.planIcs.hidden = true;
 }
 
 async function runPlan() {
@@ -781,12 +946,28 @@ function markdownPlan() {
     `- FSRS-6 desired retention: ${Math.round(Number(summary.retention) * 100)}%`,
     `- Expected recall: ${planRatingLabel(summary.rating)}`,
     "",
-    "| Date | New | Reviews | Time | Learned |",
-    "| --- | ---: | ---: | ---: | ---: |",
   ];
+  const showFiles = result.days.some(
+    (row) => Array.isArray(row.filePlan) && row.filePlan.length
+  );
+  lines.push(
+    showFiles
+      ? "| Date | New | Files | Reviews | Time | Learned |"
+      : "| Date | New | Reviews | Time | Learned |",
+    showFiles
+      ? "| --- | ---: | --- | ---: | ---: | ---: |"
+      : "| --- | ---: | ---: | ---: | ---: |"
+  );
   for (const row of result.days) {
+    const files = showFiles
+      ? ` | ${
+          (row.filePlan || [])
+            .map((part) => `${planShortFile(part.name)} ${part.count}`)
+            .join(", ") || "\u2014"
+        }`
+      : "";
     lines.push(
-      `| ${formatPlanDate(row.date)} | ${row.new} | ${row.reviews} | ${formatPlanMinutes(row.minutes)} | ${row.learned} |`
+      `| ${formatPlanDate(row.date)} | ${row.new}${files} | ${row.reviews} | ${formatPlanMinutes(row.minutes)} | ${row.learned} |`
     );
   }
   if (result.warnings && result.warnings.length) {
@@ -794,6 +975,93 @@ function markdownPlan() {
     for (const warning of result.warnings) lines.push(`- ${warning}`);
   }
   return lines.join("\n");
+}
+
+function planIcsStamp(date, minutes) {
+  const day = planDateFromIso(date);
+  if (Number.isNaN(day.getTime())) return "";
+  const local = new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    Math.floor(minutes / 60),
+    minutes % 60
+  );
+  const pad = (value) => String(value).padStart(2, "0");
+  return (
+    `${local.getFullYear()}${pad(local.getMonth() + 1)}${pad(local.getDate())}` +
+    `T${pad(local.getHours())}${pad(local.getMinutes())}00`
+  );
+}
+
+function icsEscape(value) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function buildPlanIcs() {
+  const result = state.plan.result;
+  const payload = state.plan.payload;
+  if (!result || !payload) return "";
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Anki Scribe//Study Plan//EN",
+    "CALSCALE:GREGORIAN",
+    `X-WR-CALNAME:${icsEscape("Study plan \u00b7 " + (state.doc?.filename || "Anki Scribe"))}`,
+  ];
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+  let event = 0;
+  for (const day of result.days || []) {
+    const sessions = planDaySessions(day, payload).sessions.filter(
+      (session) => !session.break
+    );
+    for (const session of sessions) {
+      event += 1;
+      const files = (day.filePlan || [])
+        .map((part) => `${planShortFile(part.name)} ${part.count}`)
+        .join(", ");
+      const summary =
+        `Study ${session.new} new` +
+        (session.reviews ? ` + ${session.reviews} reviews` : "");
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:anki-scribe-${day.date}-${event}@localhost`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART:${planIcsStamp(day.date, session.start)}`,
+        `DTEND:${planIcsStamp(day.date, session.end)}`,
+        `SUMMARY:${icsEscape(summary)}`,
+        `DESCRIPTION:${icsEscape(files ? `Files: ${files}` : "Anki Scribe study plan")}`,
+        "BEGIN:VALARM",
+        "TRIGGER:-PT10M",
+        "ACTION:DISPLAY",
+        `DESCRIPTION:${icsEscape("Study session starts in 10 minutes")}`,
+        "END:VALARM",
+        "END:VEVENT"
+      );
+    }
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+
+function downloadPlanIcs() {
+  const text = buildPlanIcs();
+  if (!text) return;
+  const blob = new Blob([text], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "anki-scribe-study-plan.ics";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast("Calendar file downloaded. Import it into your calendar app.", "success", 5000);
 }
 
 async function copyPlan() {
@@ -824,6 +1092,7 @@ function bindPlanEvents() {
   if (els.planCancel) els.planCancel.addEventListener("click", closePlanDialog);
   if (els.planRun) els.planRun.addEventListener("click", runPlan);
   if (els.planCopy) els.planCopy.addEventListener("click", copyPlan);
+  if (els.planIcs) els.planIcs.addEventListener("click", downloadPlanIcs);
   if (els.planForm) {
     els.planForm.addEventListener("submit", (event) => {
       event.preventDefault();

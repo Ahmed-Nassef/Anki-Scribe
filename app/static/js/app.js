@@ -2,7 +2,7 @@
 
 /* Application bootstrap: DOM references, startup and periodic checks. */
 
-window.__ANKI_SCRIBE_CLIENT__ = "20261127h";
+window.__ANKI_SCRIBE_CLIENT__ = "20261127i";
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
@@ -41,7 +41,8 @@ async function init() {
     "planDeadline", "planCards", "planCardsHint", "planMinutes", "planStart",
     "planEnd", "planWindowHint", "planAllDay", "planBuffer",
     "planRetention", "planRetentionValue", "planRating", "planNewSeconds",
-    "planReviewSeconds", "planResult", "planSubtitle", "planNote",
+    "planReviewSeconds", "planSession", "planBreak", "planIcs", "planResult", "planSubtitle", "planNote",
+    "leechesBtn", "leechesDialog", "closeLeeches", "leechesList", "leechesSummary", "leechesClose",
     "triageBtn", "triageDialog", "triageTitle", "closeTriage",
     "triageSourceLabel", "triageLocate", "triageQuote", "triageQuestion",
     "triageAnswerWrap", "triageAnswer", "triageDetail", "triageMeta",
@@ -88,6 +89,9 @@ async function init() {
   await restoreLastFile().catch(() => {});
   await ankiCheck;
   await loadLibrary({ quiet: true }).catch(() => {});
+  if (typeof resumeServerBatch === "function") {
+    resumeServerBatch().catch(() => {});
+  }
 
   window.__ANKI_SCRIBE_BOOTED__ = true;
   setInterval(() => checkAnki({ quiet: true }), 60000);

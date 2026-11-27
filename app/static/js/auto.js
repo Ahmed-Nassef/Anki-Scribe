@@ -58,6 +58,11 @@ function hideAutoPanel() {
 
 function cancelAutoGenerate() {
   if (state.batch.running) state.batch.cancelled = true;
+  if (state.batch.running && state.batch.jobId) {
+    els.autoCancel.disabled = true;
+    els.autoStatus.textContent = "Stopping batch\u2026";
+    return;
+  }
   if (!state.auto.running) {
     hideAutoPanel();
     return;
